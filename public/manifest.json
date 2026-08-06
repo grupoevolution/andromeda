@@ -1,0 +1,14 @@
+{
+  "name": "Andrômeda — Painel de Resultados",
+  "short_name": "Andrômeda",
+  "description": "Vendas, gasto de anúncios e lucro em tempo real",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08060F",
+  "theme_color": "#08060F",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

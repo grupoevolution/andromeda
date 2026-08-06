@@ -1,0 +1,14 @@
+{
+  "name": "andromeda",
+  "version": "1.0.0",
+  "description": "Painel de vendas e lucro — tráfego direto",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2",
+    "web-push": "^3.6.7"
+  }
+}

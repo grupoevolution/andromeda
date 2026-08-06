@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "andromeda",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["/Users/iagobastos/Downloads/andromeda/server.js"],
+      "port": 3000
+    }
+  ]
+}
