@@ -288,10 +288,14 @@
       <div class="chart-head">
         <div>
           <div class="chart-title">Importar vendas antigas</div>
-          <div class="chart-title-sub">Cole o CSV exportado da Kirvano — só entram vendas aprovadas</div>
+          <div class="chart-title-sub">Envie o relatório de vendas exportado da Kirvano — só entram vendas aprovadas</div>
         </div>
       </div>
-      <textarea id="csvBox" class="input w100" rows="5" placeholder="data;valor;status&#10;01/07/2026 14:32;97,00;Aprovado"></textarea>
+      <input type="file" id="csvFile" accept=".csv,text/csv" class="hidden">
+      <button class="btn-ghost w100" id="btnPickFile">📄 Escolher arquivo CSV</button>
+      <p class="hint" id="fileName" style="margin-top:8px"></p>
+      <label class="field-label">Ou cole o conteúdo aqui</label>
+      <textarea id="csvBox" class="input w100" rows="4" placeholder="Cole o CSV da Kirvano..."></textarea>
       <button class="btn-gold w100" id="btnImport">Importar</button>
       <p class="hint" id="importResult"></p>
     </div>

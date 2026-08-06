@@ -66,7 +66,7 @@ if (!vapidPublic || !vapidPrivate) {
 webpush.setVapidDetails('mailto:admin@andromeda.app', vapidPublic, vapidPrivate);
 
 const app = express();
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '25mb' }));
 app.use(express.text({ type: 'text/csv', limit: '10mb' }));
 
 // ---- data/hora de Brasília ----
@@ -219,21 +219,44 @@ app.post('/api/sales', auth, (req, res) => {
   res.json({ ok: true });
 });
 
-// ---- importação CSV (vendas retroativas) ----
+// ---- importação CSV (vendas retroativas — aceita o export bruto da Kirvano) ----
+function splitCsvLine(line, sep) {
+  // respeita aspas: campos podem conter o separador
+  const out = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === sep && !inQ) { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
 app.post('/api/import', auth, (req, res) => {
   const text = typeof req.body === 'string' ? req.body : (req.body.csv || '');
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   if (!lines.length) return res.status(400).json({ error: 'CSV vazio' });
 
   const sep = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ';' : ',';
-  const header = lines[0].toLowerCase().split(sep).map(h => h.trim().replace(/["']/g, ''));
-  const find = (...names) => header.findIndex(h => names.some(n => h.includes(n)));
-  const iDate = find('data', 'date', 'criado', 'created');
-  const iVal = find('valor', 'preço', 'preco', 'price', 'total', 'amount');
+  const header = splitCsvLine(lines[0].toLowerCase(), sep).map(h => h.replace(/["']/g, '').trim());
+  const find = (...names) => header.findIndex(h => names.some(n => typeof n === 'string' ? h.includes(n) : n.test(h)));
+
+  // data: prioridade pra "Finalizada em" (Kirvano), depois "Iniciada em", depois genéricos
+  let iDate = find('finalizada');
+  if (iDate < 0) iDate = find('iniciada');
+  if (iDate < 0) iDate = find('data', 'date', 'criado', 'created');
+  // valor: prioridade pra "Valor Pago", depois "Total" e genéricos
+  let iVal = find('valor pago');
+  if (iVal < 0) iVal = find('total', 'valor', 'preço', 'preco', 'price', 'amount');
   const iStatus = find('status', 'situa');
   const iProd = find('produto', 'product', 'oferta');
-  const iId = find('id', 'transa', 'venda');
-  if (iDate < 0 || iVal < 0) return res.status(400).json({ error: 'Não encontrei colunas de data e valor. O CSV precisa ter cabeçalho com "data" e "valor".' });
+  const iId = find(/c.?digo/, 'transa', /^id$/);
+  const iRefund = find('estornada');
+  if (iDate < 0 || iVal < 0) return res.status(400).json({ error: 'Não encontrei colunas de data e valor. Exporte o relatório de vendas da Kirvano ou use um CSV com cabeçalho "data" e "valor".' });
 
   function parseDate(s) {
     s = s.trim().replace(/["']/g, '');
@@ -248,25 +271,29 @@ app.post('/api/import', auth, (req, res) => {
     return m ? parseInt(m[1], 10) : null;
   }
 
-  let imported = 0, skipped = 0;
+  let imported = 0, skipped = 0, duplicates = 0;
   const insert = db.prepare('INSERT OR IGNORE INTO sales(external_id, amount, date, hour, product, source) VALUES(?,?,?,?,?,?)');
+  const dupCheck = db.prepare("SELECT 1 FROM sales WHERE date=? AND amount=? AND (hour IS ? OR hour=?) AND source!='import' LIMIT 1");
   const tx = db.transaction(() => {
     for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(sep);
+      const cols = splitCsvLine(lines[i], sep).map(c => c.replace(/^"|"$/g, ''));
       if (iStatus >= 0) {
         const st = (cols[iStatus] || '').toLowerCase();
         if (st && !st.includes('aprovad') && !st.includes('approved') && !st.includes('paid') && !st.includes('pago')) { skipped++; continue; }
       }
+      if (iRefund >= 0 && (cols[iRefund] || '').trim()) { skipped++; continue; } // venda estornada
       const d = parseDate(cols[iDate] || '');
       const v = parseAmount(cols[iVal] || '');
       if (!d || v == null || v <= 0) { skipped++; continue; }
-      const extId = iId >= 0 && cols[iId] ? 'import-' + cols[iId].replace(/["']/g, '').trim() : null;
-      const r = insert.run(extId, v, d.date, d.hour, iProd >= 0 ? (cols[iProd] || '').replace(/["']/g, '').trim() : null, 'import');
-      if (r.changes) imported++; else skipped++;
+      // evita duplicar venda que já entrou pelo webhook (mesmo dia, hora e valor)
+      if (dupCheck.get(d.date, v, d.hour, d.hour)) { duplicates++; continue; }
+      const extId = iId >= 0 && cols[iId] ? 'import-' + cols[iId].trim() : null;
+      const r = insert.run(extId, v, d.date, d.hour, iProd >= 0 ? (cols[iProd] || '').trim() : null, 'import');
+      if (r.changes) imported++; else duplicates++;
     }
   });
   tx();
-  res.json({ ok: true, imported, skipped });
+  res.json({ ok: true, imported, skipped, duplicates });
 });
 
 // ---- resumo / dashboard ----

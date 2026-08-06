@@ -494,13 +494,31 @@ async function loadSpendList() {
 }
 
 /* ================= IMPORTAÇÃO ================= */
+let csvFromFile = null;
+
+$('btnPickFile').addEventListener('click', () => $('csvFile').click());
+$('csvFile').addEventListener('change', () => {
+  const f = $('csvFile').files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    csvFromFile = reader.result;
+    $('fileName').textContent = `✓ ${f.name} carregado (${Math.round(f.size / 1024)} KB) — clique em Importar`;
+  };
+  // export da Kirvano vem em Latin-1; assim os acentos ficam corretos
+  reader.readAsText(f, 'ISO-8859-1');
+});
+
 $('btnImport').addEventListener('click', async () => {
-  const csv = $('csvBox').value.trim();
-  if (!csv) return toast('Cole o CSV primeiro', 'err');
+  const csv = (csvFromFile || $('csvBox').value).trim();
+  if (!csv) return toast('Escolha o arquivo ou cole o CSV', 'err');
   try {
     const r = await api('/api/import', { method: 'POST', body: JSON.stringify({ csv }) });
-    $('importResult').textContent = `✓ ${r.imported} vendas importadas, ${r.skipped} ignoradas (não aprovadas ou duplicadas).`;
+    $('importResult').textContent = `✓ ${r.imported} vendas importadas · ${r.duplicates || 0} já existiam · ${r.skipped} ignoradas (não aprovadas/estornadas).`;
     $('csvBox').value = '';
+    csvFromFile = null;
+    $('csvFile').value = '';
+    $('fileName').textContent = '';
     toast('Importação concluída ✓');
   } catch (e) {
     $('importResult').textContent = '✗ ' + e.message;
