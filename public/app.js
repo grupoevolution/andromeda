@@ -4,7 +4,7 @@ const $ = id => document.getElementById(id);
 
 let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('andromeda_token') || null;
 
-/* ================= espaço profundo ================= */
+/* ================= céu sutil ================= */
 (function () {
   const canvas = $('fx');
   const c = canvas.getContext('2d');
@@ -12,7 +12,7 @@ let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('a
   const DPR = Math.min(window.devicePixelRatio || 1, 2);
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let layers = [], comets = [], gridT = 0;
+  let layers = [], comets = [];
 
   function resize() {
     W = innerWidth; H = innerHeight;
@@ -23,17 +23,17 @@ let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('a
   }
 
   function build() {
-    // 3 camadas de estrelas com paralaxe (fundo lento → frente rápido)
-    layers = [0.35, 0.7, 1.2].map((depth, li) => {
-      const n = Math.floor((W * H) / (14000 - li * 4000));
+    // 2 camadas de estrelas discretas com paralaxe
+    layers = [0.3, 0.7].map((depth, li) => {
+      const n = Math.floor((W * H) / (20000 - li * 6000));
       const stars = [];
       for (let i = 0; i < n; i++) {
         stars.push({
           x: Math.random() * W, y: Math.random() * H,
-          r: 0.4 + depth * (0.4 + Math.random() * 0.7),
+          r: 0.4 + depth * (0.3 + Math.random() * 0.6),
           phase: Math.random() * Math.PI * 2,
-          tw: 0.4 + Math.random() * 0.9,
-          hue: Math.random() < 0.12 ? 'rgba(139,124,255,' : (Math.random() < 0.08 ? 'rgba(255,110,199,' : 'rgba(190,235,255,')
+          tw: 0.3 + Math.random() * 0.7,
+          hue: Math.random() < 0.1 ? 'rgba(138,155,255,' : 'rgba(220,225,245,'
         });
       }
       return { depth, stars };
@@ -54,45 +54,19 @@ let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('a
   function frame(ts) {
     c.clearRect(0, 0, W, H);
 
-    // nebulosa respirando
-    const breathe = 0.5 + 0.5 * Math.sin(ts * 0.00025);
-    let g = c.createRadialGradient(W * 0.75, H * 0.12, 0, W * 0.75, H * 0.12, W * 0.75);
-    g.addColorStop(0, `rgba(79,216,255,${(0.05 + breathe * 0.04).toFixed(3)})`);
-    g.addColorStop(1, 'transparent');
-    c.fillStyle = g; c.fillRect(0, 0, W, H);
-    g = c.createRadialGradient(W * 0.12, H * 0.85, 0, W * 0.12, H * 0.85, W * 0.7);
-    g.addColorStop(0, `rgba(139,124,255,${(0.04 + (1 - breathe) * 0.04).toFixed(3)})`);
+    // brilho suave e lento no topo
+    const breathe = 0.5 + 0.5 * Math.sin(ts * 0.0002);
+    let g = c.createRadialGradient(W * 0.7, -H * 0.1, 0, W * 0.7, -H * 0.1, W * 0.9);
+    g.addColorStop(0, `rgba(138,155,255,${(0.04 + breathe * 0.03).toFixed(3)})`);
     g.addColorStop(1, 'transparent');
     c.fillStyle = g; c.fillRect(0, 0, W, H);
 
-    // grid de perspectiva no rodapé (chão holográfico)
-    const horizon = H * 0.82;
-    gridT = reduced ? 0 : (gridT + 0.35);
-    c.save();
-    c.globalAlpha = 0.16;
-    c.strokeStyle = '#4FD8FF';
-    c.lineWidth = 0.7;
-    for (let i = 0; i < 9; i++) {
-      const p = ((i * 22 + gridT) % 198) / 198;           // 0..1
-      const y = horizon + Math.pow(p, 2.1) * (H - horizon);
-      c.globalAlpha = 0.03 + Math.pow(p, 1.6) * 0.16;
-      c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
-    }
-    c.globalAlpha = 0.07;
-    for (let i = -6; i <= 6; i++) {
-      c.beginPath();
-      c.moveTo(W / 2 + i * W * 0.09, horizon);
-      c.lineTo(W / 2 + i * W * 0.5, H + 40);
-      c.stroke();
-    }
-    c.restore();
-
-    // estrelas (paralaxe: deriva lenta pra esquerda)
+    // estrelas discretas com paralaxe
     for (const layer of layers) {
-      const drift = reduced ? 0 : (ts * 0.004 * layer.depth) % W;
+      const drift = reduced ? 0 : (ts * 0.0025 * layer.depth) % W;
       for (const s of layer.stars) {
         let x = s.x - drift; if (x < 0) x += W;
-        const a = 0.25 + 0.6 * (0.5 + 0.5 * Math.sin(ts * 0.001 * s.tw + s.phase));
+        const a = 0.12 + 0.3 * (0.5 + 0.5 * Math.sin(ts * 0.0008 * s.tw + s.phase));
         c.beginPath();
         c.fillStyle = s.hue + a.toFixed(2) + ')';
         c.arc(x, s.y, s.r, 0, Math.PI * 2);
@@ -100,23 +74,18 @@ let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('a
       }
     }
 
-    // cometas
+    // estrela cadente rara e suave
     if (!reduced) {
-      if (!lastComet || ts - lastComet > 3400 + Math.random() * 3000) { lastComet = ts; spawnComet(); }
+      if (!lastComet || ts - lastComet > 9000 + Math.random() * 9000) { lastComet = ts; spawnComet(); }
       for (let i = comets.length - 1; i >= 0; i--) {
         const m = comets[i];
         m.x += m.vx; m.y += m.vy;
-        const tx = m.x - m.vx * 14, ty = m.y - m.vy * 14;
+        const tx = m.x - m.vx * 12, ty = m.y - m.vy * 12;
         const grd = c.createLinearGradient(tx, ty, m.x, m.y);
         grd.addColorStop(0, 'rgba(0,0,0,0)');
-        grd.addColorStop(0.7, 'rgba(79,216,255,0.55)');
-        grd.addColorStop(1, '#9BEBFF');
-        c.strokeStyle = grd; c.lineWidth = 1.8; c.lineCap = 'round';
+        grd.addColorStop(1, 'rgba(220,225,245,0.5)');
+        c.strokeStyle = grd; c.lineWidth = 1.3; c.lineCap = 'round';
         c.beginPath(); c.moveTo(tx, ty); c.lineTo(m.x, m.y); c.stroke();
-        c.beginPath(); c.fillStyle = '#DFF6FF';
-        c.shadowColor = '#4FD8FF'; c.shadowBlur = 10;
-        c.arc(m.x, m.y, 1.6, 0, Math.PI * 2); c.fill();
-        c.shadowBlur = 0;
         if (m.x < -60 || m.x > W + 60 || m.y > H + 60) comets.splice(i, 1);
       }
     }
@@ -241,21 +210,15 @@ function goto(page) {
 document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => goto(b.dataset.goto)));
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => goto('painel')));
 
-/* ================= glow plugin (gráficos neon) ================= */
-const glowPlugin = {
-  id: 'glow',
-  beforeDatasetDraw(chart, args) {
-    const ctx = chart.ctx;
-    ctx.save();
-    ctx.shadowColor = args.meta.dataset ? args.meta.dataset.options.borderColor : 'rgba(79,216,255,0.8)';
-    ctx.shadowBlur = 12;
-  },
-  afterDatasetDraw(chart) { chart.ctx.restore(); }
-};
-
 /* ================= DASHBOARD ================= */
 let chartEv = null, chartHours = null;
-let evDays = 7, hDays = 1;
+let evDays = 7, hDays = 1, evCompare = false;
+
+const tooltipStyle = {
+  backgroundColor: '#16161F', borderColor: 'rgba(255,255,255,0.14)', borderWidth: 1,
+  titleColor: '#F5F6FA', bodyColor: '#9CA0B8', padding: 11, cornerRadius: 10, displayColors: false,
+  titleFont: { family: 'Inter', size: 12, weight: '600' }, bodyFont: { family: 'Inter', size: 12 }
+};
 
 async function loadSummary() {
   const s = await api('/api/summary');
@@ -268,9 +231,9 @@ async function loadSummary() {
   const delta = $('heroDelta');
   if (y.profit !== 0) {
     const p = Math.round(((t.profit - y.profit) / Math.abs(y.profit)) * 100);
-    delta.textContent = (p >= 0 ? '▲ +' : '▼ ') + p + '% vs ontem';
+    delta.textContent = (p >= 0 ? '↑ +' : '↓ ') + p + '% vs ontem';
     delta.classList.toggle('neg', p < 0);
-  } else delta.textContent = 'HOJE';
+  } else delta.textContent = 'hoje';
 
   $('hVendas').textContent = t.salesCount;
   $('hFat').textContent = fmtBRLshort(t.revenue);
@@ -299,7 +262,8 @@ async function loadSummary() {
   $('gaugeRoi').style.strokeDashoffset = (circ * (1 - frac)).toFixed(1);
 
   const [yy, mm, dd] = t.date.split('-');
-  $('todayPill').textContent = `${dd}.${mm}.${yy} · ONLINE`;
+  const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  $('todayPill').textContent = `${+dd} de ${meses[+mm - 1]} · online`;
 }
 
 async function loadEvolution() {
@@ -313,32 +277,56 @@ async function loadEvolution() {
     rev.push(map[d] ? map[d].revenue : 0);
     profit.push(map[d] ? map[d].profit : 0);
   }
+
+  // período anterior (mesma quantidade de dias, logo antes)
+  let prev = null;
+  if (evCompare) {
+    const pTo = brToday(evDays), pFrom = brToday(evDays * 2 - 1);
+    const pRows = await api(`/api/daily?from=${pFrom}&to=${pTo}`);
+    const pMap = Object.fromEntries(pRows.map(r => [r.date, r]));
+    prev = [];
+    for (let i = evDays * 2 - 1; i >= evDays; i--) {
+      const d = brToday(i);
+      prev.push(pMap[d] ? pMap[d].revenue : 0);
+    }
+  }
+
   const ctx = $('chartEv').getContext('2d');
-  const grad = ctx.createLinearGradient(0, 0, 0, 195);
-  grad.addColorStop(0, 'rgba(79,216,255,0.30)');
-  grad.addColorStop(1, 'rgba(79,216,255,0)');
+  const grad = ctx.createLinearGradient(0, 0, 0, 200);
+  grad.addColorStop(0, 'rgba(138,155,255,0.28)');
+  grad.addColorStop(1, 'rgba(138,155,255,0)');
+  const datasets = [
+    { label: 'Faturamento', data: rev, borderColor: '#8A9BFF', backgroundColor: grad, borderWidth: 2.4, fill: true, tension: 0.42, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#8A9BFF', pointHoverBorderColor: '#0A0A10', pointHoverBorderWidth: 2 },
+    { label: 'Lucro', data: profit, borderColor: '#4ADE9C', borderWidth: 2, fill: false, tension: 0.42, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#4ADE9C', pointHoverBorderColor: '#0A0A10', pointHoverBorderWidth: 2 }
+  ];
+  if (prev) datasets.push({ label: 'Período anterior', data: prev, borderColor: 'rgba(245,246,250,0.45)', borderWidth: 1.6, borderDash: [5, 5], fill: false, tension: 0.42, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#F5F6FA', pointHoverBorderColor: '#0A0A10', pointHoverBorderWidth: 2 });
+
+  $('evLegend').innerHTML =
+    '<span><span class="dot" style="background:var(--accent)"></span>Faturamento</span>' +
+    '<span><span class="dot" style="background:var(--green)"></span>Lucro</span>' +
+    (prev ? '<span><span class="dot" style="background:rgba(245,246,250,0.5)"></span>Período anterior</span>' : '');
+
   if (chartEv) chartEv.destroy();
   chartEv = new Chart(ctx, {
     type: 'line',
-    plugins: [glowPlugin],
-    data: { labels, datasets: [
-      { data: rev, borderColor: '#4FD8FF', backgroundColor: grad, borderWidth: 2.2, fill: true, tension: 0.42, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#4FD8FF', pointHoverBorderColor: '#020409', pointHoverBorderWidth: 2 },
-      { data: profit, borderColor: '#3EF2A5', borderWidth: 1.8, borderDash: [5, 4], fill: false, tension: 0.42, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#3EF2A5', pointHoverBorderColor: '#020409', pointHoverBorderWidth: 2 }
-    ]},
+    data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-      animation: { duration: 1100, easing: 'easeOutCubic' },
-      plugins: { legend: { display: false }, tooltip: {
-        backgroundColor: 'rgba(7,15,28,0.97)', borderColor: 'rgba(79,216,255,0.4)', borderWidth: 1,
-        titleColor: '#EAF6FF', bodyColor: '#8FB0C9', padding: 10, cornerRadius: 4, displayColors: false,
-        titleFont: { family: 'JetBrains Mono', size: 11 }, bodyFont: { family: 'JetBrains Mono', size: 11 },
-        callbacks: { label: c => (c.datasetIndex === 0 ? 'Faturamento: ' : 'Lucro: ') + fmtBRL(c.parsed.y) }
+      animation: { duration: 900, easing: 'easeOutCubic' },
+      plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
+        callbacks: { label: c => c.dataset.label + ': ' + fmtBRL(c.parsed.y) }
       }},
-      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#4A6480', font: { size: 9, family: 'JetBrains Mono' }, maxTicksLimit: 8, maxRotation: 0 } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#5A5E75', font: { size: 11, family: 'Inter' }, maxTicksLimit: 8, maxRotation: 0 } },
                 y: { display: false } }
     }
   });
 }
+
+$('evCompareToggle').addEventListener('click', () => {
+  evCompare = !evCompare;
+  $('evSwitch').classList.toggle('on', evCompare);
+  loadEvolution();
+});
 
 async function loadHours() {
   const to = brToday(), from = brToday(hDays - 1);
@@ -347,32 +335,33 @@ async function loadHours() {
   const data = rows.map(r => r.sales);
   const max = Math.max(...data);
   const ctx = $('chartHours').getContext('2d');
-  const grad = ctx.createLinearGradient(0, 0, 0, 160);
-  grad.addColorStop(0, 'rgba(79,216,255,0.9)');
-  grad.addColorStop(1, 'rgba(139,124,255,0.25)');
-  const colors = data.map(v => (max > 0 && v === max) ? '#9BEBFF' : grad);
+  const grad = ctx.createLinearGradient(0, 0, 0, 170);
+  grad.addColorStop(0, 'rgba(138,155,255,0.3)');
+  grad.addColorStop(1, 'rgba(138,155,255,0)');
   if (chartHours) chartHours.destroy();
   chartHours = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 2, borderSkipped: false, barPercentage: 0.6 }] },
+    type: 'line',
+    data: { labels, datasets: [{
+      data, borderColor: '#8A9BFF', backgroundColor: grad, borderWidth: 2.4, fill: true, tension: 0.45,
+      pointRadius: data.map(v => (max > 0 && v === max) ? 4 : 0),
+      pointBackgroundColor: '#F5F6FA', pointBorderColor: '#8A9BFF', pointBorderWidth: 2,
+      pointHoverRadius: 5, pointHoverBackgroundColor: '#8A9BFF', pointHoverBorderColor: '#0A0A10', pointHoverBorderWidth: 2
+    }]},
     options: {
-      responsive: true, maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
       animation: { duration: 800, easing: 'easeOutCubic' },
-      plugins: { legend: { display: false }, tooltip: {
-        backgroundColor: 'rgba(7,15,28,0.97)', borderColor: 'rgba(79,216,255,0.4)', borderWidth: 1,
-        titleColor: '#EAF6FF', bodyColor: '#8FB0C9', padding: 10, cornerRadius: 4, displayColors: false,
-        titleFont: { family: 'JetBrains Mono', size: 11 }, bodyFont: { family: 'JetBrains Mono', size: 11 },
+      plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
         callbacks: { label: c => c.parsed.y + ' venda' + (c.parsed.y === 1 ? '' : 's') }
       }},
-      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#4A6480', font: { size: 8.5, family: 'JetBrains Mono' }, maxTicksLimit: 12, maxRotation: 0 } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#5A5E75', font: { size: 10.5, family: 'Inter' }, maxTicksLimit: 12, maxRotation: 0 } },
                 y: { display: false } }
     }
   });
   if (max > 0) {
     const idx = data.indexOf(max);
-    $('peakBadge').textContent = `◉ PICO ÀS ${idx}H–${idx + 1}H · ${max} VENDA${max === 1 ? '' : 'S'}`;
+    $('peakBadge').textContent = `Pico às ${idx}h–${idx + 1}h · ${max} venda${max === 1 ? '' : 's'}`;
   } else {
-    $('peakBadge').textContent = 'SEM VENDAS NO PERÍODO';
+    $('peakBadge').textContent = 'Sem vendas no período';
   }
 }
 
@@ -440,7 +429,7 @@ async function loadSpendList() {
   const to = brToday(), from = brToday(59);
   const rows = await api(`/api/spend?from=${from}&to=${to}`);
   const el = $('spendList');
-  if (!rows.length) { el.innerHTML = '<div class="empty">// nenhum gasto registrado</div>'; return; }
+  if (!rows.length) { el.innerHTML = '<div class="empty">Nenhum gasto registrado ainda</div>'; return; }
   el.innerHTML = rows.map(r => `
     <div class="sale-row">
       <div class="sale-info">

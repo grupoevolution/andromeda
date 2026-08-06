@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#020409">
+<meta name="theme-color" content="#0A0A10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Andrômeda — Painel de Resultados</title>
@@ -11,15 +11,14 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-<!-- espaço profundo -->
+<!-- céu -->
 <canvas id="fx"></canvas>
 <div class="vignette"></div>
-<div class="scanlines"></div>
 
 <!-- ===================== LOGIN ===================== -->
 <div id="loginScreen" class="login hidden">
@@ -30,8 +29,8 @@
       <div class="ring r3"></div>
       <div class="ring-core">A</div>
     </div>
-    <h1 class="login-title glitch-in">ANDRÔMEDA</h1>
-    <p class="login-sub">// INSIRA O CÓDIGO DE ACESSO</p>
+    <h1 class="login-title glitch-in">Andrômeda</h1>
+    <p class="login-sub">Digite seu PIN de acesso</p>
     <div class="pin-dots" id="pinDots"><span></span><span></span><span></span><span></span></div>
     <p class="pin-error" id="pinError"></p>
     <div class="pad" id="pad">
@@ -56,7 +55,7 @@
     <div class="brand">
       <div class="mini-ring"><span></span></div>
       <div>
-        <div class="brand-name">ANDRÔMEDA</div>
+        <div class="brand-name">Andrômeda</div>
         <div class="brand-sub"><i class="live-dot"></i><span id="todayPill">—</span></div>
       </div>
     </div>
@@ -70,22 +69,15 @@
 
     <!-- HERO -->
     <section class="hero hud rise" style="--d:.05s">
-      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
       <div class="hero-head">
-        <div class="hud-label"><i class="blip"></i>LUCRO DO DIA</div>
+        <div class="hud-label"><i class="blip"></i>Lucro do dia</div>
         <div class="badge-delta" id="heroDelta">—</div>
       </div>
 
       <div class="hero-main">
         <div class="hero-value-wrap">
           <div class="hero-value" id="heroLucro">R$ 0,00</div>
-          <div class="hero-caption">faturamento − anúncios − imposto 12,15%</div>
-        </div>
-        <div class="holo-sphere" aria-hidden="true">
-          <div class="hs-ring hr1"></div>
-          <div class="hs-ring hr2"></div>
-          <div class="hs-ring hr3"></div>
-          <div class="hs-core"></div>
+          <div class="hero-caption">faturamento − anúncios − imposto de 12,15%</div>
         </div>
       </div>
 
@@ -99,36 +91,30 @@
 
     <!-- gasto -->
     <button class="spend-strip hud rise" style="--d:.12s" id="btnEditSpend">
-      <i class="c tl"></i><i class="c br"></i>
       <span class="spend-pulse"></span>
       <span class="spend-mid">
-        <span class="hud-label">ANÚNCIOS · HOJE</span>
+        <span class="hud-label">Anúncios hoje</span>
         <span class="spend-v"><b id="spendToday">R$ 0,00</b><em id="spendTaxToday">+ R$ 0,00 imposto</em></span>
       </span>
-      <span class="spend-edit">EDITAR</span>
+      <span class="spend-edit">Editar</span>
     </button>
 
     <!-- mês -->
-    <div class="hud-label section rise" style="--d:.18s">ESTE MÊS <span class="rule"></span></div>
+    <div class="hud-label section rise" style="--d:.18s">Este mês <span class="rule"></span></div>
     <div class="grid">
       <div class="mcard hud rise" style="--d:.20s">
-        <i class="c tl"></i><i class="c br"></i>
-        <div class="mcard-label">LUCRO</div>
+        <div class="mcard-label">Lucro</div>
         <div class="mcard-value green" id="mLucroMes">—</div>
-        <div class="spark"></div>
       </div>
       <div class="mcard hud rise" style="--d:.24s">
-        <i class="c tl"></i><i class="c br"></i>
-        <div class="mcard-label">FATURADO</div>
+        <div class="mcard-label">Faturado</div>
         <div class="mcard-value" id="mFatMes">—</div>
       </div>
       <div class="mcard hud rise" style="--d:.28s">
-        <i class="c tl"></i><i class="c br"></i>
-        <div class="mcard-label">INVESTIDO <small>c/ imposto</small></div>
+        <div class="mcard-label">Investido <small>c/ imposto</small></div>
         <div class="mcard-value rose" id="mInvMes">—</div>
       </div>
       <div class="mcard hud gauge-card rise" style="--d:.32s">
-        <i class="c tl"></i><i class="c br"></i>
         <div>
           <div class="mcard-label">ROI</div>
           <div class="mcard-value accent" id="mRoiMes">—</div>
@@ -139,24 +125,26 @@
         </svg>
       </div>
       <div class="mcard hud wide rise" style="--d:.36s">
-        <i class="c tl"></i><i class="c br"></i>
         <div class="mcard-row">
-          <div><div class="mcard-label">VENDAS/MÊS</div><div class="mcard-value num" id="mVendasMes">—</div></div>
+          <div><div class="mcard-label">Vendas no mês</div><div class="mcard-value num" id="mVendasMes">—</div></div>
           <div class="vr"></div>
-          <div><div class="mcard-label">TICKET MÉDIO</div><div class="mcard-value" id="mTicket">—</div></div>
+          <div><div class="mcard-label">Ticket médio</div><div class="mcard-value" id="mTicket">—</div></div>
           <div class="vr"></div>
-          <div><div class="mcard-label">ONTEM</div><div class="mcard-value" id="mOntem">—</div></div>
+          <div><div class="mcard-label">Ontem</div><div class="mcard-value" id="mOntem">—</div></div>
         </div>
       </div>
     </div>
 
     <!-- evolução -->
     <section class="panel hud rise" style="--d:.40s">
-      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
       <div class="panel-head">
         <div>
-          <div class="panel-title">EVOLUÇÃO</div>
-          <div class="panel-sub">faturamento × lucro por dia</div>
+          <div class="panel-title">Evolução</div>
+          <div class="panel-sub">faturamento e lucro por dia</div>
+        </div>
+        <div class="cmp-toggle" id="evCompareToggle">
+          Comparar
+          <div class="switch" id="evSwitch"></div>
         </div>
       </div>
       <div class="period-row" id="evPeriods">
@@ -165,18 +153,17 @@
         <div class="pill" data-days="30">30D</div>
       </div>
       <div class="chart-wrap"><canvas id="chartEv"></canvas></div>
-      <div class="legend-row">
-        <span><span class="dot" style="background:var(--cyan)"></span>Faturamento</span>
+      <div class="legend-row" id="evLegend">
+        <span><span class="dot" style="background:var(--accent)"></span>Faturamento</span>
         <span><span class="dot" style="background:var(--green)"></span>Lucro</span>
       </div>
     </section>
 
     <!-- horários -->
     <section class="panel hud rise" style="--d:.44s">
-      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
       <div class="panel-head">
         <div>
-          <div class="panel-title">HORÁRIOS DE PICO</div>
+          <div class="panel-title">Horários de pico</div>
           <div class="panel-sub">quando as vendas mais saem</div>
         </div>
       </div>
@@ -186,15 +173,14 @@
         <div class="pill" data-hdays="30">30D</div>
       </div>
       <div class="chart-wrap short"><canvas id="chartHours"></canvas></div>
-      <div class="peak-badge" id="peakBadge">SEM VENDAS NO PERÍODO</div>
+      <div class="peak-badge" id="peakBadge">Sem vendas no período</div>
     </section>
 
     <!-- comparar -->
     <section class="panel hud rise" style="--d:.48s">
-      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
       <div class="panel-head">
         <div>
-          <div class="panel-title">COMPARAR DIAS</div>
+          <div class="panel-title">Comparar dias</div>
           <div class="panel-sub">ex.: dia 8 deste mês × dia 8 do mês passado</div>
         </div>
       </div>
@@ -203,7 +189,7 @@
         <span class="cmp-x">×</span>
         <input type="date" id="cmpB" class="input">
       </div>
-      <button class="btn-neon w100" id="btnCompare">COMPARAR</button>
+      <button class="btn-neon w100" id="btnCompare">Comparar</button>
       <div id="cmpResult" class="cmp-result hidden"></div>
     </section>
 
@@ -212,40 +198,37 @@
 
   <!-- ========= ANÚNCIOS ========= -->
   <main id="page-anuncios" class="page hidden">
-    <button class="back" data-back>← VOLTAR AO PAINEL</button>
+    <button class="back" data-back>← Voltar ao painel</button>
 
     <section class="panel hud rise">
-      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
       <div class="panel-head">
         <div>
-          <div class="panel-title">GASTO COM ANÚNCIOS</div>
+          <div class="panel-title">Gasto com anúncios</div>
           <div class="panel-sub">o imposto de 12,15% é somado automaticamente</div>
         </div>
       </div>
-      <label class="field-label">DATA</label>
+      <label class="field-label">Data</label>
       <input type="date" id="spendDate" class="input w100">
-      <label class="field-label">VALOR GASTO (SEM IMPOSTO)</label>
+      <label class="field-label">Valor gasto (sem imposto)</label>
       <input type="text" inputmode="decimal" id="spendValue" class="input w100" placeholder="Ex.: 350,00">
       <div class="tax-preview" id="taxPreview"></div>
-      <button class="btn-neon w100" id="btnSaveSpend">SALVAR GASTO</button>
+      <button class="btn-neon w100" id="btnSaveSpend">Salvar gasto</button>
     </section>
 
     <section class="panel hud rise" style="--d:.08s">
-      <i class="c tl"></i><i class="c br"></i>
-      <div class="panel-head"><div><div class="panel-title">ÚLTIMOS GASTOS</div></div></div>
+      <div class="panel-head"><div><div class="panel-title">Últimos gastos</div></div></div>
       <div id="spendList" class="list"></div>
     </section>
 
     <section class="panel hud rise" style="--d:.14s">
-      <i class="c tl"></i><i class="c br"></i>
       <div class="panel-head">
         <div>
-          <div class="panel-title">IMPORTAR VENDAS ANTIGAS</div>
+          <div class="panel-title">Importar vendas antigas</div>
           <div class="panel-sub">cole o CSV exportado da Kirvano — só entram vendas aprovadas</div>
         </div>
       </div>
       <textarea id="csvBox" class="input w100" rows="5" placeholder="data;valor;status&#10;01/07/2026 14:32;97,00;Aprovado"></textarea>
-      <button class="btn-neon w100" id="btnImport">IMPORTAR</button>
+      <button class="btn-neon w100" id="btnImport">Importar</button>
       <p class="hint" id="importResult"></p>
     </section>
     <div class="foot-space"></div>
@@ -253,28 +236,25 @@
 
   <!-- ========= CONFIG ========= -->
   <main id="page-config" class="page hidden">
-    <button class="back" data-back>← VOLTAR AO PAINEL</button>
+    <button class="back" data-back>← Voltar ao painel</button>
 
     <section class="panel hud rise">
-      <i class="c tl"></i><i class="c br"></i>
-      <div class="panel-head"><div><div class="panel-title">NOTIFICAÇÕES</div>
+      <div class="panel-head"><div><div class="panel-title">Notificações</div>
       <div class="panel-sub">receba um aviso a cada venda aprovada</div></div></div>
-      <button class="btn-neon w100" id="btnEnablePush">ATIVAR NOTIFICAÇÕES</button>
-      <button class="btn-ghost w100" id="btnTestPush" style="margin-top:10px">ENVIAR TESTE</button>
+      <button class="btn-neon w100" id="btnEnablePush">Ativar notificações</button>
+      <button class="btn-ghost w100" id="btnTestPush" style="margin-top:10px">Enviar teste</button>
       <p class="hint" id="pushStatus"></p>
     </section>
 
     <section class="panel hud rise" style="--d:.08s">
-      <i class="c tl"></i><i class="c br"></i>
-      <div class="panel-head"><div><div class="panel-title">WEBHOOK DA KIRVANO</div>
+      <div class="panel-head"><div><div class="panel-title">Webhook da Kirvano</div>
       <div class="panel-sub">cole esta URL na Kirvano (venda aprovada + reembolso)</div></div></div>
       <div class="code-box" id="webhookUrl">—</div>
-      <button class="btn-ghost w100" id="btnCopyWebhook">COPIAR URL</button>
+      <button class="btn-ghost w100" id="btnCopyWebhook">Copiar URL</button>
     </section>
 
     <section class="panel hud rise" style="--d:.14s">
-      <i class="c tl"></i><i class="c br"></i>
-      <button class="btn-ghost w100 danger" id="btnLogout">ENCERRAR SESSÃO</button>
+      <button class="btn-ghost w100 danger" id="btnLogout">Encerrar sessão</button>
     </section>
     <div class="foot-space"></div>
   </main>
@@ -283,13 +263,13 @@
   <div class="drawer-veil hidden" id="drawerVeil"></div>
   <aside class="drawer" id="drawer">
     <div class="drawer-head">
-      <div class="brand-name">MENU</div>
+      <div class="brand-name">Menu</div>
       <button class="drawer-close" id="btnCloseMenu" aria-label="Fechar">✕</button>
     </div>
-    <button class="drawer-item" data-goto="painel"><i>01</i>PAINEL</button>
-    <button class="drawer-item" data-goto="anuncios"><i>02</i>ANÚNCIOS</button>
-    <button class="drawer-item" data-goto="config"><i>03</i>CONFIGURAÇÕES</button>
-    <div class="drawer-foot">ANDRÔMEDA // PAINEL DE RESULTADOS</div>
+    <button class="drawer-item" data-goto="painel"><i>01</i>Painel</button>
+    <button class="drawer-item" data-goto="anuncios"><i>02</i>Anúncios</button>
+    <button class="drawer-item" data-goto="config"><i>03</i>Configurações</button>
+    <div class="drawer-foot">Andrômeda · painel de resultados</div>
   </aside>
 </div>
 
