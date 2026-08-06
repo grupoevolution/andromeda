@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#07050E">
+<meta name="theme-color" content="#020409">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Andrômeda — Painel de Resultados</title>
@@ -11,33 +11,27 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-<!-- universo -->
-<div class="sky">
-  <div class="aurora a1"></div>
-  <div class="aurora a2"></div>
-  <div class="aurora a3"></div>
-  <canvas id="fx"></canvas>
-</div>
-<div class="grain"></div>
+<!-- espaço profundo -->
+<canvas id="fx"></canvas>
+<div class="vignette"></div>
+<div class="scanlines"></div>
 
 <!-- ===================== LOGIN ===================== -->
 <div id="loginScreen" class="login hidden">
-  <div class="login-inner fade-up">
-    <div class="brand-mark big halo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="url(#gg0)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <defs><linearGradient id="gg0" x1="0" y1="0" x2="24" y2="24"><stop offset="0%" stop-color="#FFE3B3"/><stop offset="100%" stop-color="#F5B766"/></linearGradient></defs>
-        <path d="M12 2l1.8 6.6L20 10l-6.2 1.9L12 18l-1.8-6.1L4 10l6.2-1.4z"/>
-        <circle cx="19" cy="18" r="1.4" fill="#C9BBFF" stroke="none"/>
-        <circle cx="5" cy="6" r="1" fill="#C9BBFF" stroke="none"/>
-      </svg>
+  <div class="login-inner">
+    <div class="ring-logo">
+      <div class="ring r1"></div>
+      <div class="ring r2"></div>
+      <div class="ring r3"></div>
+      <div class="ring-core">A</div>
     </div>
-    <h1 class="login-title">Andrômeda</h1>
-    <p class="login-sub">Digite seu PIN de acesso</p>
+    <h1 class="login-title glitch-in">ANDRÔMEDA</h1>
+    <p class="login-sub">// INSIRA O CÓDIGO DE ACESSO</p>
     <div class="pin-dots" id="pinDots"><span></span><span></span><span></span><span></span></div>
     <p class="pin-error" id="pinError"></p>
     <div class="pad" id="pad">
@@ -60,17 +54,10 @@
 
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark halo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="url(#gg)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <defs><linearGradient id="gg" x1="0" y1="0" x2="24" y2="24"><stop offset="0%" stop-color="#FFE3B3"/><stop offset="100%" stop-color="#F5B766"/></linearGradient></defs>
-          <path d="M12 2l1.8 6.6L20 10l-6.2 1.9L12 18l-1.8-6.1L4 10l6.2-1.4z"/>
-          <circle cx="19" cy="18" r="1.4" fill="#C9BBFF" stroke="none"/>
-          <circle cx="5" cy="6" r="1" fill="#C9BBFF" stroke="none"/>
-        </svg>
-      </div>
+      <div class="mini-ring"><span></span></div>
       <div>
-        <div class="brand-name">Andrômeda</div>
-        <div class="brand-sub" id="todayPill">—</div>
+        <div class="brand-name">ANDRÔMEDA</div>
+        <div class="brand-sub"><i class="live-dot"></i><span id="todayPill">—</span></div>
       </div>
     </div>
     <button class="burger" id="btnMenu" aria-label="Menu">
@@ -81,76 +68,95 @@
   <!-- ========= PAINEL ========= -->
   <main id="page-painel" class="page">
 
-    <div class="hero-wrap fade-up">
-      <div class="hero">
-        <div class="hero-orbit"></div>
-        <div class="hero-top">
-          <div class="hero-label">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>
-            Lucro do dia
-          </div>
-          <div class="badge-delta" id="heroDelta">—</div>
+    <!-- HERO -->
+    <section class="hero hud rise" style="--d:.05s">
+      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+      <div class="hero-head">
+        <div class="hud-label"><i class="blip"></i>LUCRO DO DIA</div>
+        <div class="badge-delta" id="heroDelta">—</div>
+      </div>
+
+      <div class="hero-main">
+        <div class="hero-value-wrap">
+          <div class="hero-value" id="heroLucro">R$ 0,00</div>
+          <div class="hero-caption">faturamento − anúncios − imposto 12,15%</div>
         </div>
-        <div class="hero-value" id="heroLucro">R$ 0,00</div>
-        <div class="hero-caption">faturamento − anúncios − imposto de 12,15%</div>
-
-        <div class="hero-foot">
-          <div class="hero-foot-item"><div class="k">Vendas</div><div class="v big" id="hVendas">—</div></div>
-          <div class="hero-foot-item"><div class="k">Faturado</div><div class="v" id="hFat">—</div></div>
-          <div class="hero-foot-item"><div class="k">ROI</div><div class="v roi" id="hRoi">—</div></div>
+        <div class="holo-sphere" aria-hidden="true">
+          <div class="hs-ring hr1"></div>
+          <div class="hs-ring hr2"></div>
+          <div class="hs-ring hr3"></div>
+          <div class="hs-core"></div>
         </div>
       </div>
-    </div>
 
-    <div class="spend-strip fade-up" style="animation-delay:.06s" id="btnEditSpend" role="button">
-      <div class="spend-ic">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg>
+      <div class="hero-stats">
+        <div class="hstat"><div class="k">Vendas</div><div class="v num" id="hVendas">0</div></div>
+        <div class="hstat"><div class="k">Faturado</div><div class="v" id="hFat">—</div></div>
+        <div class="hstat"><div class="k">ROI</div><div class="v accent" id="hRoi">—</div></div>
       </div>
-      <div class="spend-mid">
-        <div class="spend-k">Anúncios hoje</div>
-        <div class="spend-v"><span id="spendToday">R$ 0,00</span><em id="spendTaxToday">+ R$ 0,00 imposto</em></div>
-      </div>
-      <div class="spend-edit">editar</div>
-    </div>
+      <div class="energy"><i id="energyBar"></i></div>
+    </section>
 
-    <div class="section-label fade-up" style="animation-delay:.09s">Este mês</div>
+    <!-- gasto -->
+    <button class="spend-strip hud rise" style="--d:.12s" id="btnEditSpend">
+      <i class="c tl"></i><i class="c br"></i>
+      <span class="spend-pulse"></span>
+      <span class="spend-mid">
+        <span class="hud-label">ANÚNCIOS · HOJE</span>
+        <span class="spend-v"><b id="spendToday">R$ 0,00</b><em id="spendTaxToday">+ R$ 0,00 imposto</em></span>
+      </span>
+      <span class="spend-edit">EDITAR</span>
+    </button>
+
+    <!-- mês -->
+    <div class="hud-label section rise" style="--d:.18s">ESTE MÊS <span class="rule"></span></div>
     <div class="grid">
-      <div class="mcard glow-green fade-up" style="animation-delay:.10s">
-        <div class="mcard-ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg></div>
-        <div class="mcard-label">Lucro</div>
-        <div class="mcard-value" id="mLucroMes">—</div>
+      <div class="mcard hud rise" style="--d:.20s">
+        <i class="c tl"></i><i class="c br"></i>
+        <div class="mcard-label">LUCRO</div>
+        <div class="mcard-value green" id="mLucroMes">—</div>
+        <div class="spark"></div>
       </div>
-      <div class="mcard fade-up" style="animation-delay:.13s">
-        <div class="mcard-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
-        <div class="mcard-label">Faturado</div>
+      <div class="mcard hud rise" style="--d:.24s">
+        <i class="c tl"></i><i class="c br"></i>
+        <div class="mcard-label">FATURADO</div>
         <div class="mcard-value" id="mFatMes">—</div>
       </div>
-      <div class="mcard fade-up" style="animation-delay:.16s">
-        <div class="mcard-ic ic-rose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg></div>
-        <div class="mcard-label">Investido <small>c/ imposto</small></div>
-        <div class="mcard-value" id="mInvMes">—</div>
+      <div class="mcard hud rise" style="--d:.28s">
+        <i class="c tl"></i><i class="c br"></i>
+        <div class="mcard-label">INVESTIDO <small>c/ imposto</small></div>
+        <div class="mcard-value rose" id="mInvMes">—</div>
       </div>
-      <div class="mcard glow-gold fade-up" style="animation-delay:.19s">
-        <div class="mcard-ic ic-gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></div>
-        <div class="mcard-label">ROI</div>
-        <div class="mcard-value gold" id="mRoiMes">—</div>
+      <div class="mcard hud gauge-card rise" style="--d:.32s">
+        <i class="c tl"></i><i class="c br"></i>
+        <div>
+          <div class="mcard-label">ROI</div>
+          <div class="mcard-value accent" id="mRoiMes">—</div>
+        </div>
+        <svg class="gauge" viewBox="0 0 64 64">
+          <circle class="g-bg" cx="32" cy="32" r="26"/>
+          <circle class="g-val" id="gaugeRoi" cx="32" cy="32" r="26"/>
+        </svg>
       </div>
-      <div class="mcard wide fade-up" style="animation-delay:.22s">
+      <div class="mcard hud wide rise" style="--d:.36s">
+        <i class="c tl"></i><i class="c br"></i>
         <div class="mcard-row">
-          <div><div class="mcard-label">Vendas no mês</div><div class="mcard-value" id="mVendasMes">—</div></div>
+          <div><div class="mcard-label">VENDAS/MÊS</div><div class="mcard-value num" id="mVendasMes">—</div></div>
           <div class="vr"></div>
-          <div><div class="mcard-label">Ticket médio</div><div class="mcard-value" id="mTicket">—</div></div>
+          <div><div class="mcard-label">TICKET MÉDIO</div><div class="mcard-value" id="mTicket">—</div></div>
           <div class="vr"></div>
-          <div><div class="mcard-label">Ontem</div><div class="mcard-value" id="mOntem">—</div></div>
+          <div><div class="mcard-label">ONTEM</div><div class="mcard-value" id="mOntem">—</div></div>
         </div>
       </div>
     </div>
 
-    <div class="chart-card fade-up" style="animation-delay:.25s">
-      <div class="chart-head">
+    <!-- evolução -->
+    <section class="panel hud rise" style="--d:.40s">
+      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+      <div class="panel-head">
         <div>
-          <div class="chart-title">Evolução</div>
-          <div class="chart-title-sub">faturamento e lucro por dia</div>
+          <div class="panel-title">EVOLUÇÃO</div>
+          <div class="panel-sub">faturamento × lucro por dia</div>
         </div>
       </div>
       <div class="period-row" id="evPeriods">
@@ -160,16 +166,18 @@
       </div>
       <div class="chart-wrap"><canvas id="chartEv"></canvas></div>
       <div class="legend-row">
-        <span><span class="dot" style="background:var(--gold)"></span>Faturamento</span>
+        <span><span class="dot" style="background:var(--cyan)"></span>Faturamento</span>
         <span><span class="dot" style="background:var(--green)"></span>Lucro</span>
       </div>
-    </div>
+    </section>
 
-    <div class="chart-card fade-up" style="animation-delay:.28s">
-      <div class="chart-head">
+    <!-- horários -->
+    <section class="panel hud rise" style="--d:.44s">
+      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+      <div class="panel-head">
         <div>
-          <div class="chart-title">Horários de pico</div>
-          <div class="chart-title-sub">quando as vendas mais saem</div>
+          <div class="panel-title">HORÁRIOS DE PICO</div>
+          <div class="panel-sub">quando as vendas mais saem</div>
         </div>
       </div>
       <div class="period-row" id="hPeriods">
@@ -178,14 +186,16 @@
         <div class="pill" data-hdays="30">30D</div>
       </div>
       <div class="chart-wrap short"><canvas id="chartHours"></canvas></div>
-      <div class="peak-badge" id="peakBadge">Sem vendas no período</div>
-    </div>
+      <div class="peak-badge" id="peakBadge">SEM VENDAS NO PERÍODO</div>
+    </section>
 
-    <div class="chart-card fade-up" style="animation-delay:.31s">
-      <div class="chart-head">
+    <!-- comparar -->
+    <section class="panel hud rise" style="--d:.48s">
+      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+      <div class="panel-head">
         <div>
-          <div class="chart-title">Comparar dias</div>
-          <div class="chart-title-sub">ex.: dia 8 deste mês × dia 8 do mês passado</div>
+          <div class="panel-title">COMPARAR DIAS</div>
+          <div class="panel-sub">ex.: dia 8 deste mês × dia 8 do mês passado</div>
         </div>
       </div>
       <div class="cmp-row">
@@ -193,73 +203,79 @@
         <span class="cmp-x">×</span>
         <input type="date" id="cmpB" class="input">
       </div>
-      <button class="btn-gold w100" id="btnCompare">Comparar</button>
+      <button class="btn-neon w100" id="btnCompare">COMPARAR</button>
       <div id="cmpResult" class="cmp-result hidden"></div>
-    </div>
+    </section>
 
     <div class="foot-space"></div>
   </main>
 
-  <!-- ========= PÁGINA ANÚNCIOS ========= -->
+  <!-- ========= ANÚNCIOS ========= -->
   <main id="page-anuncios" class="page hidden">
-    <button class="back" data-back>← voltar ao painel</button>
+    <button class="back" data-back>← VOLTAR AO PAINEL</button>
 
-    <div class="chart-card fade-up">
-      <div class="chart-head">
+    <section class="panel hud rise">
+      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+      <div class="panel-head">
         <div>
-          <div class="chart-title">Gasto com anúncios</div>
-          <div class="chart-title-sub">o imposto de 12,15% é somado automaticamente</div>
+          <div class="panel-title">GASTO COM ANÚNCIOS</div>
+          <div class="panel-sub">o imposto de 12,15% é somado automaticamente</div>
         </div>
       </div>
-      <label class="field-label">Data</label>
+      <label class="field-label">DATA</label>
       <input type="date" id="spendDate" class="input w100">
-      <label class="field-label">Valor gasto (sem imposto)</label>
+      <label class="field-label">VALOR GASTO (SEM IMPOSTO)</label>
       <input type="text" inputmode="decimal" id="spendValue" class="input w100" placeholder="Ex.: 350,00">
       <div class="tax-preview" id="taxPreview"></div>
-      <button class="btn-gold w100" id="btnSaveSpend">Salvar gasto</button>
-    </div>
+      <button class="btn-neon w100" id="btnSaveSpend">SALVAR GASTO</button>
+    </section>
 
-    <div class="chart-card fade-up" style="animation-delay:.08s">
-      <div class="chart-head"><div><div class="chart-title">Últimos gastos</div></div></div>
+    <section class="panel hud rise" style="--d:.08s">
+      <i class="c tl"></i><i class="c br"></i>
+      <div class="panel-head"><div><div class="panel-title">ÚLTIMOS GASTOS</div></div></div>
       <div id="spendList" class="list"></div>
-    </div>
+    </section>
 
-    <div class="chart-card fade-up" style="animation-delay:.14s">
-      <div class="chart-head">
+    <section class="panel hud rise" style="--d:.14s">
+      <i class="c tl"></i><i class="c br"></i>
+      <div class="panel-head">
         <div>
-          <div class="chart-title">Importar vendas antigas</div>
-          <div class="chart-title-sub">cole o CSV exportado da Kirvano — só entram vendas aprovadas</div>
+          <div class="panel-title">IMPORTAR VENDAS ANTIGAS</div>
+          <div class="panel-sub">cole o CSV exportado da Kirvano — só entram vendas aprovadas</div>
         </div>
       </div>
       <textarea id="csvBox" class="input w100" rows="5" placeholder="data;valor;status&#10;01/07/2026 14:32;97,00;Aprovado"></textarea>
-      <button class="btn-gold w100" id="btnImport">Importar</button>
+      <button class="btn-neon w100" id="btnImport">IMPORTAR</button>
       <p class="hint" id="importResult"></p>
-    </div>
+    </section>
     <div class="foot-space"></div>
   </main>
 
-  <!-- ========= PÁGINA CONFIGURAÇÕES ========= -->
+  <!-- ========= CONFIG ========= -->
   <main id="page-config" class="page hidden">
-    <button class="back" data-back>← voltar ao painel</button>
+    <button class="back" data-back>← VOLTAR AO PAINEL</button>
 
-    <div class="chart-card fade-up">
-      <div class="chart-head"><div><div class="chart-title">Notificações</div>
-      <div class="chart-title-sub">receba um aviso a cada venda aprovada</div></div></div>
-      <button class="btn-gold w100" id="btnEnablePush">Ativar notificações</button>
-      <button class="btn-ghost w100" id="btnTestPush" style="margin-top:10px">Enviar teste</button>
+    <section class="panel hud rise">
+      <i class="c tl"></i><i class="c br"></i>
+      <div class="panel-head"><div><div class="panel-title">NOTIFICAÇÕES</div>
+      <div class="panel-sub">receba um aviso a cada venda aprovada</div></div></div>
+      <button class="btn-neon w100" id="btnEnablePush">ATIVAR NOTIFICAÇÕES</button>
+      <button class="btn-ghost w100" id="btnTestPush" style="margin-top:10px">ENVIAR TESTE</button>
       <p class="hint" id="pushStatus"></p>
-    </div>
+    </section>
 
-    <div class="chart-card fade-up" style="animation-delay:.08s">
-      <div class="chart-head"><div><div class="chart-title">Webhook da Kirvano</div>
-      <div class="chart-title-sub">cole esta URL na Kirvano (venda aprovada + reembolso)</div></div></div>
+    <section class="panel hud rise" style="--d:.08s">
+      <i class="c tl"></i><i class="c br"></i>
+      <div class="panel-head"><div><div class="panel-title">WEBHOOK DA KIRVANO</div>
+      <div class="panel-sub">cole esta URL na Kirvano (venda aprovada + reembolso)</div></div></div>
       <div class="code-box" id="webhookUrl">—</div>
-      <button class="btn-ghost w100" id="btnCopyWebhook">Copiar URL</button>
-    </div>
+      <button class="btn-ghost w100" id="btnCopyWebhook">COPIAR URL</button>
+    </section>
 
-    <div class="chart-card fade-up" style="animation-delay:.14s">
-      <button class="btn-ghost w100 danger" id="btnLogout">Sair</button>
-    </div>
+    <section class="panel hud rise" style="--d:.14s">
+      <i class="c tl"></i><i class="c br"></i>
+      <button class="btn-ghost w100 danger" id="btnLogout">ENCERRAR SESSÃO</button>
+    </section>
     <div class="foot-space"></div>
   </main>
 
@@ -267,28 +283,19 @@
   <div class="drawer-veil hidden" id="drawerVeil"></div>
   <aside class="drawer" id="drawer">
     <div class="drawer-head">
-      <div class="brand-name">Menu</div>
+      <div class="brand-name">MENU</div>
       <button class="drawer-close" id="btnCloseMenu" aria-label="Fechar">✕</button>
     </div>
-    <button class="drawer-item" data-goto="painel">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>
-      Painel
-    </button>
-    <button class="drawer-item" data-goto="anuncios">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg>
-      Anúncios
-    </button>
-    <button class="drawer-item" data-goto="config">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3h.1a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5h.1a1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8v.1a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>
-      Configurações
-    </button>
-    <div class="drawer-foot">Andrômeda · painel de resultados</div>
+    <button class="drawer-item" data-goto="painel"><i>01</i>PAINEL</button>
+    <button class="drawer-item" data-goto="anuncios"><i>02</i>ANÚNCIOS</button>
+    <button class="drawer-item" data-goto="config"><i>03</i>CONFIGURAÇÕES</button>
+    <div class="drawer-foot">ANDRÔMEDA // PAINEL DE RESULTADOS</div>
   </aside>
 </div>
 
 <!-- modal -->
 <div id="modal" class="modal hidden">
-  <div class="modal-card" id="modalCard"></div>
+  <div class="modal-card hud" id="modalCard"></div>
 </div>
 
 <div id="toast" class="toast hidden"></div>

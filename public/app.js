@@ -1,10 +1,10 @@
-/* ============ Andrômeda — app.js ============ */
+/* ============ ANDRÔMEDA — HUD ============ */
 const TAX = 0.1215;
 const $ = id => document.getElementById(id);
 
 let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('andromeda_token') || null;
 
-/* ================= universo animado ================= */
+/* ================= espaço profundo ================= */
 (function () {
   const canvas = $('fx');
   const c = canvas.getContext('2d');
@@ -12,91 +12,112 @@ let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('a
   const DPR = Math.min(window.devicePixelRatio || 1, 2);
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let stars = [], links = [], meteors = [], bursts = [];
+  let layers = [], comets = [], gridT = 0;
 
   function resize() {
     W = innerWidth; H = innerHeight;
     canvas.width = W * DPR; canvas.height = H * DPR;
     canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     c.setTransform(DPR, 0, 0, DPR, 0, 0);
-    buildStars();
+    build();
   }
 
-  function buildStars() {
-    stars = [];
-    const count = Math.floor((W * H) / 9000);
-    for (let i = 0; i < count; i++) {
-      stars.push({
-        x: Math.random() * W, y: Math.random() * H,
-        r: Math.random() * 1.2 + 0.4,
-        phase: Math.random() * Math.PI * 2,
-        speed: 0.5 + Math.random() * 0.8
-      });
-    }
-    links = [];
-    const maxD = 95;
-    for (let i = 0; i < stars.length; i++)
-      for (let j = i + 1; j < stars.length; j++) {
-        const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y;
-        const d = Math.hypot(dx, dy);
-        if (d < maxD) links.push([i, j, 1 - d / maxD]);
+  function build() {
+    // 3 camadas de estrelas com paralaxe (fundo lento → frente rápido)
+    layers = [0.35, 0.7, 1.2].map((depth, li) => {
+      const n = Math.floor((W * H) / (14000 - li * 4000));
+      const stars = [];
+      for (let i = 0; i < n; i++) {
+        stars.push({
+          x: Math.random() * W, y: Math.random() * H,
+          r: 0.4 + depth * (0.4 + Math.random() * 0.7),
+          phase: Math.random() * Math.PI * 2,
+          tw: 0.4 + Math.random() * 0.9,
+          hue: Math.random() < 0.12 ? 'rgba(139,124,255,' : (Math.random() < 0.08 ? 'rgba(255,110,199,' : 'rgba(190,235,255,')
+        });
       }
-  }
-
-  function spawnMeteor() {
-    meteors.push({
-      x: Math.random() * W * 0.85 + W * 0.1, y: -20,
-      vx: -2.1 - Math.random() * 1.3, vy: 4.8 + Math.random() * 1.8,
-      landY: H * (0.25 + Math.random() * 0.5)
+      return { depth, stars };
     });
   }
-  function burstAt(x, y) {
-    const n = 8 + Math.floor(Math.random() * 5);
-    for (let i = 0; i < n; i++) {
-      const ang = Math.random() * Math.PI * 2, spd = 1 + Math.random() * 2.1;
-      bursts.push({ x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, r: 1 + Math.random() * 1.5, life: 1 });
-    }
+
+  function spawnComet() {
+    const fromLeft = Math.random() < 0.5;
+    comets.push({
+      x: fromLeft ? -30 : W + 30, y: Math.random() * H * 0.45,
+      vx: (fromLeft ? 1 : -1) * (3.2 + Math.random() * 2.2),
+      vy: 1.1 + Math.random() * 1.2,
+      life: 1
+    });
   }
 
-  let lastSpawn = 0;
+  let lastComet = 0;
   function frame(ts) {
     c.clearRect(0, 0, W, H);
 
-    for (const [i, j, w] of links) {
-      c.strokeStyle = 'rgba(201,187,255,' + (w * 0.075).toFixed(3) + ')';
-      c.lineWidth = 1;
-      c.beginPath(); c.moveTo(stars[i].x, stars[i].y); c.lineTo(stars[j].x, stars[j].y); c.stroke();
+    // nebulosa respirando
+    const breathe = 0.5 + 0.5 * Math.sin(ts * 0.00025);
+    let g = c.createRadialGradient(W * 0.75, H * 0.12, 0, W * 0.75, H * 0.12, W * 0.75);
+    g.addColorStop(0, `rgba(79,216,255,${(0.05 + breathe * 0.04).toFixed(3)})`);
+    g.addColorStop(1, 'transparent');
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    g = c.createRadialGradient(W * 0.12, H * 0.85, 0, W * 0.12, H * 0.85, W * 0.7);
+    g.addColorStop(0, `rgba(139,124,255,${(0.04 + (1 - breathe) * 0.04).toFixed(3)})`);
+    g.addColorStop(1, 'transparent');
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+
+    // grid de perspectiva no rodapé (chão holográfico)
+    const horizon = H * 0.82;
+    gridT = reduced ? 0 : (gridT + 0.35);
+    c.save();
+    c.globalAlpha = 0.16;
+    c.strokeStyle = '#4FD8FF';
+    c.lineWidth = 0.7;
+    for (let i = 0; i < 9; i++) {
+      const p = ((i * 22 + gridT) % 198) / 198;           // 0..1
+      const y = horizon + Math.pow(p, 2.1) * (H - horizon);
+      c.globalAlpha = 0.03 + Math.pow(p, 1.6) * 0.16;
+      c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke();
     }
-    for (const s of stars) {
-      const a = 0.2 + 0.55 * (0.5 + 0.5 * Math.sin(ts * 0.001 * s.speed + s.phase));
+    c.globalAlpha = 0.07;
+    for (let i = -6; i <= 6; i++) {
       c.beginPath();
-      c.fillStyle = 'rgba(255,255,255,' + a.toFixed(2) + ')';
-      c.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      c.fill();
+      c.moveTo(W / 2 + i * W * 0.09, horizon);
+      c.lineTo(W / 2 + i * W * 0.5, H + 40);
+      c.stroke();
+    }
+    c.restore();
+
+    // estrelas (paralaxe: deriva lenta pra esquerda)
+    for (const layer of layers) {
+      const drift = reduced ? 0 : (ts * 0.004 * layer.depth) % W;
+      for (const s of layer.stars) {
+        let x = s.x - drift; if (x < 0) x += W;
+        const a = 0.25 + 0.6 * (0.5 + 0.5 * Math.sin(ts * 0.001 * s.tw + s.phase));
+        c.beginPath();
+        c.fillStyle = s.hue + a.toFixed(2) + ')';
+        c.arc(x, s.y, s.r, 0, Math.PI * 2);
+        c.fill();
+      }
     }
 
+    // cometas
     if (!reduced) {
-      if (!lastSpawn || ts - lastSpawn > 2800 + Math.random() * 2600) { lastSpawn = ts; spawnMeteor(); }
-
-      for (let m = meteors.length - 1; m >= 0; m--) {
-        const mt = meteors[m];
-        mt.x += mt.vx; mt.y += mt.vy;
-        const tailX = mt.x - mt.vx * 11, tailY = mt.y - mt.vy * 11;
-        const grd = c.createLinearGradient(tailX, tailY, mt.x, mt.y);
+      if (!lastComet || ts - lastComet > 3400 + Math.random() * 3000) { lastComet = ts; spawnComet(); }
+      for (let i = comets.length - 1; i >= 0; i--) {
+        const m = comets[i];
+        m.x += m.vx; m.y += m.vy;
+        const tx = m.x - m.vx * 14, ty = m.y - m.vy * 14;
+        const grd = c.createLinearGradient(tx, ty, m.x, m.y);
         grd.addColorStop(0, 'rgba(0,0,0,0)');
-        grd.addColorStop(1, '#F5B766');
-        c.strokeStyle = grd; c.lineWidth = 2; c.lineCap = 'round';
-        c.beginPath(); c.moveTo(tailX, tailY); c.lineTo(mt.x, mt.y); c.stroke();
-        c.beginPath(); c.fillStyle = '#FFE3B3'; c.arc(mt.x, mt.y, 1.7, 0, Math.PI * 2); c.fill();
-        if (mt.y >= mt.landY || mt.x < -40 || mt.y > H + 40) { burstAt(mt.x, mt.y); meteors.splice(m, 1); }
-      }
-      for (let b = bursts.length - 1; b >= 0; b--) {
-        const bu = bursts[b];
-        bu.x += bu.vx; bu.y += bu.vy; bu.vy += 0.03; bu.life -= 0.022;
-        if (bu.life <= 0) { bursts.splice(b, 1); continue; }
-        c.globalAlpha = Math.max(bu.life, 0);
-        c.beginPath(); c.fillStyle = '#FBC98A'; c.arc(bu.x, bu.y, bu.r, 0, Math.PI * 2); c.fill();
-        c.globalAlpha = 1;
+        grd.addColorStop(0.7, 'rgba(79,216,255,0.55)');
+        grd.addColorStop(1, '#9BEBFF');
+        c.strokeStyle = grd; c.lineWidth = 1.8; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(tx, ty); c.lineTo(m.x, m.y); c.stroke();
+        c.beginPath(); c.fillStyle = '#DFF6FF';
+        c.shadowColor = '#4FD8FF'; c.shadowBlur = 10;
+        c.arc(m.x, m.y, 1.6, 0, Math.PI * 2); c.fill();
+        c.shadowBlur = 0;
+        if (m.x < -60 || m.x > W + 60 || m.y > H + 60) comets.splice(i, 1);
       }
     }
     requestAnimationFrame(frame);
@@ -129,12 +150,10 @@ function parseVal(s) {
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
 }
-
-/* contador animado de dinheiro */
 function countUpBRL(el, target) {
   const from = el._val || 0;
   el._val = target;
-  const t0 = performance.now(), dur = 900;
+  const t0 = performance.now(), dur = 1000;
   function step(ts) {
     const p = Math.min((ts - t0) / dur, 1);
     const eased = 1 - Math.pow(1 - p, 3);
@@ -222,6 +241,18 @@ function goto(page) {
 document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => goto(b.dataset.goto)));
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => goto('painel')));
 
+/* ================= glow plugin (gráficos neon) ================= */
+const glowPlugin = {
+  id: 'glow',
+  beforeDatasetDraw(chart, args) {
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.shadowColor = args.meta.dataset ? args.meta.dataset.options.borderColor : 'rgba(79,216,255,0.8)';
+    ctx.shadowBlur = 12;
+  },
+  afterDatasetDraw(chart) { chart.ctx.restore(); }
+};
+
 /* ================= DASHBOARD ================= */
 let chartEv = null, chartHours = null;
 let evDays = 7, hDays = 1;
@@ -237,13 +268,18 @@ async function loadSummary() {
   const delta = $('heroDelta');
   if (y.profit !== 0) {
     const p = Math.round(((t.profit - y.profit) / Math.abs(y.profit)) * 100);
-    delta.textContent = (p >= 0 ? '↑ +' : '↓ ') + p + '% vs ontem';
+    delta.textContent = (p >= 0 ? '▲ +' : '▼ ') + p + '% vs ontem';
     delta.classList.toggle('neg', p < 0);
-  } else delta.textContent = 'hoje';
+  } else delta.textContent = 'HOJE';
 
   $('hVendas').textContent = t.salesCount;
   $('hFat').textContent = fmtBRLshort(t.revenue);
   $('hRoi').textContent = t.roi != null ? String(t.roi).replace('.', ',') + 'x' : '—';
+
+  // barra de energia: quanto do faturamento virou lucro
+  const ratio = t.revenue > 0 ? Math.max(0, Math.min(1, t.profit / t.revenue)) : 0;
+  $('energyBar').style.setProperty('--w', Math.round(ratio * 100) + '%');
+  $('energyBar').style.width = Math.round(ratio * 100) + '%';
 
   $('spendToday').textContent = fmtBRL(t.spend);
   $('spendTaxToday').textContent = '+ ' + fmtBRL(t.tax) + ' imposto';
@@ -257,9 +293,13 @@ async function loadSummary() {
   $('mTicket').textContent = m.salesCount > 0 ? fmtBRLshort(m.revenue / m.salesCount) : '—';
   $('mOntem').textContent = fmtBRLshort(y.revenue);
 
+  // gauge ROI: 3x = anel completo
+  const circ = 163.4;
+  const frac = m.roi != null ? Math.max(0, Math.min(1, m.roi / 3)) : 0;
+  $('gaugeRoi').style.strokeDashoffset = (circ * (1 - frac)).toFixed(1);
+
   const [yy, mm, dd] = t.date.split('-');
-  const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  $('todayPill').textContent = `${+dd} de ${meses[+mm - 1]} · ${yy}`;
+  $('todayPill').textContent = `${dd}.${mm}.${yy} · ONLINE`;
 }
 
 async function loadEvolution() {
@@ -275,24 +315,27 @@ async function loadEvolution() {
   }
   const ctx = $('chartEv').getContext('2d');
   const grad = ctx.createLinearGradient(0, 0, 0, 195);
-  grad.addColorStop(0, 'rgba(245,183,102,0.38)');
-  grad.addColorStop(1, 'rgba(245,183,102,0)');
+  grad.addColorStop(0, 'rgba(79,216,255,0.30)');
+  grad.addColorStop(1, 'rgba(79,216,255,0)');
   if (chartEv) chartEv.destroy();
   chartEv = new Chart(ctx, {
     type: 'line',
+    plugins: [glowPlugin],
     data: { labels, datasets: [
-      { data: rev, borderColor: '#F5B766', backgroundColor: grad, borderWidth: 2.5, fill: true, tension: 0.42, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#F5B766', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2 },
-      { data: profit, borderColor: '#3FCE93', borderWidth: 2, borderDash: [5, 4], fill: false, tension: 0.42, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#3FCE93', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2 }
+      { data: rev, borderColor: '#4FD8FF', backgroundColor: grad, borderWidth: 2.2, fill: true, tension: 0.42, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#4FD8FF', pointHoverBorderColor: '#020409', pointHoverBorderWidth: 2 },
+      { data: profit, borderColor: '#3EF2A5', borderWidth: 1.8, borderDash: [5, 4], fill: false, tension: 0.42, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#3EF2A5', pointHoverBorderColor: '#020409', pointHoverBorderWidth: 2 }
     ]},
     options: {
       responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
       animation: { duration: 1100, easing: 'easeOutCubic' },
       plugins: { legend: { display: false }, tooltip: {
-        backgroundColor: '#171429', borderColor: 'rgba(245,183,102,0.4)', borderWidth: 1,
-        titleColor: '#F8F5FF', bodyColor: '#A9A2C7', padding: 10, cornerRadius: 8, displayColors: false,
+        backgroundColor: 'rgba(7,15,28,0.97)', borderColor: 'rgba(79,216,255,0.4)', borderWidth: 1,
+        titleColor: '#EAF6FF', bodyColor: '#8FB0C9', padding: 10, cornerRadius: 4, displayColors: false,
+        titleFont: { family: 'JetBrains Mono', size: 11 }, bodyFont: { family: 'JetBrains Mono', size: 11 },
         callbacks: { label: c => (c.datasetIndex === 0 ? 'Faturamento: ' : 'Lucro: ') + fmtBRL(c.parsed.y) }
       }},
-      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 10, family: 'Inter' }, maxTicksLimit: 8, maxRotation: 0 } }, y: { display: false } }
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#4A6480', font: { size: 9, family: 'JetBrains Mono' }, maxTicksLimit: 8, maxRotation: 0 } },
+                y: { display: false } }
     }
   });
 }
@@ -303,28 +346,33 @@ async function loadHours() {
   const labels = rows.map(r => r.hour + 'h');
   const data = rows.map(r => r.sales);
   const max = Math.max(...data);
-  const colors = data.map(v => (max > 0 && v === max) ? '#F5B766' : 'rgba(140,123,239,0.5)');
   const ctx = $('chartHours').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 160);
+  grad.addColorStop(0, 'rgba(79,216,255,0.9)');
+  grad.addColorStop(1, 'rgba(139,124,255,0.25)');
+  const colors = data.map(v => (max > 0 && v === max) ? '#9BEBFF' : grad);
   if (chartHours) chartHours.destroy();
   chartHours = new Chart(ctx, {
     type: 'bar',
-    data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 4, borderSkipped: false, barPercentage: 0.65 }] },
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 2, borderSkipped: false, barPercentage: 0.6 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       animation: { duration: 800, easing: 'easeOutCubic' },
       plugins: { legend: { display: false }, tooltip: {
-        backgroundColor: '#171429', borderColor: 'rgba(245,183,102,0.4)', borderWidth: 1,
-        titleColor: '#F8F5FF', bodyColor: '#A9A2C7', padding: 10, cornerRadius: 8, displayColors: false,
+        backgroundColor: 'rgba(7,15,28,0.97)', borderColor: 'rgba(79,216,255,0.4)', borderWidth: 1,
+        titleColor: '#EAF6FF', bodyColor: '#8FB0C9', padding: 10, cornerRadius: 4, displayColors: false,
+        titleFont: { family: 'JetBrains Mono', size: 11 }, bodyFont: { family: 'JetBrains Mono', size: 11 },
         callbacks: { label: c => c.parsed.y + ' venda' + (c.parsed.y === 1 ? '' : 's') }
       }},
-      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 9 }, maxTicksLimit: 12, maxRotation: 0 } }, y: { display: false } }
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#4A6480', font: { size: 8.5, family: 'JetBrains Mono' }, maxTicksLimit: 12, maxRotation: 0 } },
+                y: { display: false } }
     }
   });
   if (max > 0) {
     const idx = data.indexOf(max);
-    $('peakBadge').textContent = `🔥 Pico às ${idx}h–${idx + 1}h (${max} venda${max === 1 ? '' : 's'})`;
+    $('peakBadge').textContent = `◉ PICO ÀS ${idx}H–${idx + 1}H · ${max} VENDA${max === 1 ? '' : 'S'}`;
   } else {
-    $('peakBadge').textContent = 'Sem vendas no período';
+    $('peakBadge').textContent = 'SEM VENDAS NO PERÍODO';
   }
 }
 
@@ -347,12 +395,12 @@ $('hPeriods').addEventListener('click', e => {
 $('btnEditSpend').addEventListener('click', () => {
   const today = brToday();
   openModal(`
-    <div class="modal-title">Gasto de hoje</div>
+    <div class="modal-title">GASTO DE HOJE</div>
     <div class="modal-sub">${fmtDate(today)} — digite o valor sem imposto</div>
     <input type="text" inputmode="decimal" id="mSpendVal" class="input w100" placeholder="Ex.: 350,00" style="margin-top:8px">
     <div class="tax-preview" id="mTaxPrev"></div>
-    <button class="btn-gold w100" id="mSaveSpend">Salvar</button>
-    <button class="btn-ghost w100" id="mCancel" style="margin-top:10px">Cancelar</button>
+    <button class="btn-neon w100" id="mSaveSpend">SALVAR</button>
+    <button class="btn-ghost w100" id="mCancel" style="margin-top:10px">CANCELAR</button>
   `);
   const inp = $('mSpendVal');
   inp.focus();
@@ -392,14 +440,14 @@ async function loadSpendList() {
   const to = brToday(), from = brToday(59);
   const rows = await api(`/api/spend?from=${from}&to=${to}`);
   const el = $('spendList');
-  if (!rows.length) { el.innerHTML = '<div class="empty">Nenhum gasto registrado ainda</div>'; return; }
+  if (!rows.length) { el.innerHTML = '<div class="empty">// nenhum gasto registrado</div>'; return; }
   el.innerHTML = rows.map(r => `
     <div class="sale-row">
       <div class="sale-info">
-        <div class="sale-amt">${fmtBRL(r.amount)} <span style="color:var(--rose);font-size:11px">+${fmtBRL(r.amount * TAX)}</span></div>
+        <div class="sale-amt">${fmtBRL(r.amount)} <span style="color:var(--magenta);font-size:10.5px">+${fmtBRL(r.amount * TAX)}</span></div>
         <div class="sale-meta">${fmtDate(r.date)} — total ${fmtBRL(r.amount * (1 + TAX))}</div>
       </div>
-      <button class="btn-ghost" data-editspend="${r.date}" data-val="${r.amount}">Editar</button>
+      <button class="btn-ghost" data-editspend="${r.date}" data-val="${r.amount}">EDITAR</button>
     </div>`).join('');
   el.querySelectorAll('[data-editspend]').forEach(b => b.addEventListener('click', () => {
     $('spendDate').value = b.dataset.editspend;
