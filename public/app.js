@@ -246,7 +246,7 @@ function goto(page) {
   $('page-' + page).classList.remove('hidden');
   window.scrollTo({ top: 0 });
   closeMenu();
-  if (page === 'anuncios') loadSpendList();
+  if (page === 'anuncios') { loadSpendList(); loadSales(true); }
   if (page === 'painel') refreshAll();
 }
 document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => goto(b.dataset.goto)));
@@ -492,6 +492,38 @@ async function loadSpendList() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }));
 }
+
+/* ================= ÚLTIMAS VENDAS (remover teste/erro) ================= */
+let salesLimit = 15;
+async function loadSales(reset) {
+  if (reset) salesLimit = 15;
+  const rows = await api('/api/sales?limit=' + salesLimit);
+  const el = $('salesList');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Nenhuma venda registrada ainda</div>'; return; }
+  el.innerHTML = rows.map(r => `
+    <div class="sale-row">
+      <div class="sale-info">
+        <div class="sale-amt" style="color:var(--green)">+ ${fmtBRL(r.amount)}</div>
+        <div class="sale-meta">${fmtDate(r.date)}${r.hour != null ? ' às ' + r.hour + 'h' : ''}${r.product ? ' — ' + r.product : ''}${r.source === 'import' ? ' (importada)' : r.source === 'manual' ? ' (manual)' : ''}</div>
+      </div>
+      <button class="btn-ghost" data-delsale="${r.id}" style="color:var(--rose);border-color:rgba(239,124,153,0.3)">✕</button>
+    </div>`).join('');
+  el.querySelectorAll('[data-delsale]').forEach(b => b.addEventListener('click', () => {
+    openModal(`
+      <div class="modal-title">Excluir esta venda?</div>
+      <div class="modal-sub">Ela sai do faturamento e de todos os gráficos. Não dá pra desfazer.</div>
+      <button class="btn-gold w100" id="mDelYes" style="background:linear-gradient(100deg,#FFB3C4,#EF7C99)">Excluir</button>
+      <button class="btn-ghost w100" id="mDelNo" style="margin-top:10px">Cancelar</button>
+    `);
+    $('mDelNo').onclick = closeModal;
+    $('mDelYes').onclick = async () => {
+      await api('/api/sales/' + b.dataset.delsale, { method: 'DELETE' });
+      closeModal(); toast('Venda excluída');
+      loadSales(false);
+    };
+  }));
+}
+$('btnMoreSales').addEventListener('click', () => { salesLimit += 15; loadSales(false); });
 
 /* ================= IMPORTAÇÃO ================= */
 let csvFromFile = null;
