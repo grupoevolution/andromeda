@@ -1,10 +1,11 @@
-/* ============ ANDRÔMEDA — HUD ============ */
+/* ============ ANDRÔMEDA — app.js ============ */
 const TAX = 0.1215;
 const $ = id => document.getElementById(id);
 
 let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('andromeda_token') || null;
 
-/* ================= céu sutil ================= */
+/* ================= céu galáctico: constelações + meteoros dourados ================= */
+let moneyVals = [48, 75, 120, 32, 96, 210, 64, 155]; // atualizado com valores reais após o load
 (function () {
   const canvas = $('fx');
   const c = canvas.getContext('2d');
@@ -12,87 +13,119 @@ let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('a
   const DPR = Math.min(window.devicePixelRatio || 1, 2);
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  let layers = [], comets = [];
-
+  let stars = [], links = [];
   function resize() {
-    W = innerWidth; H = innerHeight;
+    W = window.innerWidth; H = window.innerHeight;
     canvas.width = W * DPR; canvas.height = H * DPR;
     canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     c.setTransform(DPR, 0, 0, DPR, 0, 0);
-    build();
+    buildStars();
   }
 
-  function build() {
-    // 2 camadas de estrelas discretas com paralaxe
-    layers = [0.3, 0.7].map((depth, li) => {
-      const n = Math.floor((W * H) / (20000 - li * 6000));
-      const stars = [];
-      for (let i = 0; i < n; i++) {
-        stars.push({
-          x: Math.random() * W, y: Math.random() * H,
-          r: 0.4 + depth * (0.3 + Math.random() * 0.6),
-          phase: Math.random() * Math.PI * 2,
-          tw: 0.3 + Math.random() * 0.7,
-          hue: Math.random() < 0.1 ? 'rgba(138,155,255,' : 'rgba(220,225,245,'
-        });
+  function buildStars() {
+    stars = [];
+    const count = Math.floor((W * H) / 10000);
+    for (let i = 0; i < count; i++) {
+      stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.2 + 0.4, phase: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.8 });
+    }
+    links = [];
+    const maxD = 100;
+    for (let i = 0; i < stars.length; i++) {
+      for (let j = i + 1; j < stars.length; j++) {
+        const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < maxD) links.push([i, j, 1 - d / maxD]);
       }
-      return { depth, stars };
+    }
+  }
+
+  let meteors = [], bursts = [], moneyTexts = [];
+
+  function spawnMeteor() {
+    meteors.push({
+      x: Math.random() * W * 0.85 + W * 0.1, y: -20,
+      vx: -2.2 - Math.random() * 1.3, vy: 5.0 + Math.random() * 1.8,
+      landY: H * (0.3 + Math.random() * 0.45)
     });
   }
 
-  function spawnComet() {
-    const fromLeft = Math.random() < 0.5;
-    comets.push({
-      x: fromLeft ? -30 : W + 30, y: Math.random() * H * 0.45,
-      vx: (fromLeft ? 1 : -1) * (3.2 + Math.random() * 2.2),
-      vy: 1.1 + Math.random() * 1.2,
-      life: 1
-    });
+  function burstAt(x, y) {
+    const n = 9 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < n; i++) {
+      const ang = Math.random() * Math.PI * 2, spd = 1 + Math.random() * 2.2;
+      bursts.push({ x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, r: 1 + Math.random() * 1.6, life: 1 });
+    }
+    if (Math.random() < 0.65) {
+      const val = moneyVals[Math.floor(Math.random() * moneyVals.length)];
+      moneyTexts.push({ x, y, vy: -0.5, life: 1, text: '+R$ ' + val });
+    }
   }
 
-  let lastComet = 0;
+  let lastSpawn = 0;
   function frame(ts) {
     c.clearRect(0, 0, W, H);
 
-    // brilho suave e lento no topo
-    const breathe = 0.5 + 0.5 * Math.sin(ts * 0.0002);
-    let g = c.createRadialGradient(W * 0.7, -H * 0.1, 0, W * 0.7, -H * 0.1, W * 0.9);
-    g.addColorStop(0, `rgba(138,155,255,${(0.04 + breathe * 0.03).toFixed(3)})`);
-    g.addColorStop(1, 'transparent');
-    c.fillStyle = g; c.fillRect(0, 0, W, H);
-
-    // estrelas discretas com paralaxe
-    for (const layer of layers) {
-      const drift = reduced ? 0 : (ts * 0.0025 * layer.depth) % W;
-      for (const s of layer.stars) {
-        let x = s.x - drift; if (x < 0) x += W;
-        const a = 0.12 + 0.3 * (0.5 + 0.5 * Math.sin(ts * 0.0008 * s.tw + s.phase));
-        c.beginPath();
-        c.fillStyle = s.hue + a.toFixed(2) + ')';
-        c.arc(x, s.y, s.r, 0, Math.PI * 2);
-        c.fill();
-      }
+    for (let l = 0; l < links.length; l++) {
+      const a = stars[links[l][0]], b = stars[links[l][1]];
+      c.strokeStyle = 'rgba(201,187,255,' + (links[l][2] * 0.08).toFixed(3) + ')';
+      c.lineWidth = 1;
+      c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
     }
 
-    // estrela cadente rara e suave
+    for (let s = 0; s < stars.length; s++) {
+      const st = stars[s];
+      const alpha = 0.22 + 0.55 * (0.5 + 0.5 * Math.sin((ts || 0) * 0.001 * st.speed + st.phase));
+      c.beginPath();
+      c.fillStyle = 'rgba(255,255,255,' + alpha.toFixed(2) + ')';
+      c.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+      c.fill();
+    }
+
     if (!reduced) {
-      if (!lastComet || ts - lastComet > 9000 + Math.random() * 9000) { lastComet = ts; spawnComet(); }
-      for (let i = comets.length - 1; i >= 0; i--) {
-        const m = comets[i];
-        m.x += m.vx; m.y += m.vy;
-        const tx = m.x - m.vx * 12, ty = m.y - m.vy * 12;
-        const grd = c.createLinearGradient(tx, ty, m.x, m.y);
+      if (!lastSpawn || ts - lastSpawn > (2600 + Math.random() * 2200)) {
+        lastSpawn = ts; spawnMeteor();
+      }
+
+      for (let m = meteors.length - 1; m >= 0; m--) {
+        const mt = meteors[m];
+        mt.x += mt.vx; mt.y += mt.vy;
+        const tailX = mt.x - mt.vx * 11, tailY = mt.y - mt.vy * 11;
+        const grd = c.createLinearGradient(tailX, tailY, mt.x, mt.y);
         grd.addColorStop(0, 'rgba(0,0,0,0)');
-        grd.addColorStop(1, 'rgba(220,225,245,0.5)');
-        c.strokeStyle = grd; c.lineWidth = 1.3; c.lineCap = 'round';
-        c.beginPath(); c.moveTo(tx, ty); c.lineTo(m.x, m.y); c.stroke();
-        if (m.x < -60 || m.x > W + 60 || m.y > H + 60) comets.splice(i, 1);
+        grd.addColorStop(1, '#F5B766');
+        c.strokeStyle = grd; c.lineWidth = 2; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(tailX, tailY); c.lineTo(mt.x, mt.y); c.stroke();
+        c.beginPath(); c.fillStyle = '#FFD9A0'; c.arc(mt.x, mt.y, 1.7, 0, Math.PI * 2); c.fill();
+
+        if (mt.y >= mt.landY || mt.x < -40 || mt.y > H + 40) {
+          burstAt(mt.x, mt.y); meteors.splice(m, 1);
+        }
+      }
+
+      for (let bi = bursts.length - 1; bi >= 0; bi--) {
+        const bu = bursts[bi];
+        bu.x += bu.vx; bu.y += bu.vy; bu.vy += 0.03; bu.life -= 0.02;
+        if (bu.life <= 0) { bursts.splice(bi, 1); continue; }
+        c.beginPath(); c.globalAlpha = Math.max(bu.life, 0);
+        c.fillStyle = '#FBC98A'; c.arc(bu.x, bu.y, bu.r, 0, Math.PI * 2); c.fill();
+        c.globalAlpha = 1;
+      }
+
+      for (let ti = moneyTexts.length - 1; ti >= 0; ti--) {
+        const mtx = moneyTexts[ti];
+        mtx.y += mtx.vy; mtx.life -= 0.011;
+        if (mtx.life <= 0) { moneyTexts.splice(ti, 1); continue; }
+        c.globalAlpha = Math.max(mtx.life, 0);
+        c.fillStyle = '#F5B766'; c.font = '600 11px "JetBrains Mono", monospace';
+        c.fillText(mtx.text, mtx.x + 6, mtx.y);
+        c.globalAlpha = 1;
       }
     }
+
     requestAnimationFrame(frame);
   }
 
-  addEventListener('resize', resize);
+  window.addEventListener('resize', resize);
   resize();
   requestAnimationFrame(frame);
 })();
@@ -119,17 +152,26 @@ function parseVal(s) {
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
 }
-function countUpBRL(el, target) {
+function countUpBRL(el, target, short) {
   const from = el._val || 0;
   el._val = target;
-  const t0 = performance.now(), dur = 1000;
+  const t0 = performance.now(), dur = 1100;
+  const fmt = short ? fmtBRLshort : fmtBRL;
   function step(ts) {
     const p = Math.min((ts - t0) / dur, 1);
     const eased = 1 - Math.pow(1 - p, 3);
-    el.textContent = fmtBRL(from + (target - from) * eased);
+    el.textContent = fmt(from + (target - from) * eased);
     if (p < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
+}
+const svgUp = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M7 17L17 7M7 7h10v10"/></svg>';
+const svgDown = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M7 7l10 10M17 7v10H7"/></svg>';
+function setDelta(el, curr, prev) {
+  if (prev == null || prev === 0 || curr == null) { el.innerHTML = ''; return; }
+  const p = Math.round(((curr - prev) / Math.abs(prev)) * 100);
+  el.className = 'mcard-delta ' + (p >= 0 ? 'up' : 'down');
+  el.innerHTML = (p >= 0 ? svgUp : svgDown) + Math.abs(p) + '%';
 }
 
 async function api(path, opts = {}) {
@@ -212,17 +254,23 @@ document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click'
 
 /* ================= DASHBOARD ================= */
 let chartEv = null, chartHours = null;
-let evDays = 7, hDays = 1, evCompare = false;
+let evDays = 7, hDays = 1, compareOn = false;
 
 const tooltipStyle = {
-  backgroundColor: '#16161F', borderColor: 'rgba(255,255,255,0.14)', borderWidth: 1,
-  titleColor: '#F5F6FA', bodyColor: '#9CA0B8', padding: 11, cornerRadius: 10, displayColors: false,
-  titleFont: { family: 'Inter', size: 12, weight: '600' }, bodyFont: { family: 'Inter', size: 12 }
+  backgroundColor: '#171429', borderColor: 'rgba(245,183,102,0.4)', borderWidth: 1,
+  titleColor: '#F8F5FF', bodyColor: '#A9A2C7', padding: 10, cornerRadius: 8, displayColors: false
 };
 
 async function loadSummary() {
   const s = await api('/api/summary');
   const t = s.today, y = s.yesterday, m = s.month;
+
+  // anteontem (para o delta do card "faturado ontem")
+  let before = null;
+  try {
+    const bRows = await api(`/api/daily?from=${brToday(2)}&to=${brToday(2)}`);
+    before = bRows[0] || null;
+  } catch (e) { /* sem dado, sem delta */ }
 
   const el = $('heroLucro');
   countUpBRL(el, t.profit);
@@ -231,58 +279,58 @@ async function loadSummary() {
   const delta = $('heroDelta');
   if (y.profit !== 0) {
     const p = Math.round(((t.profit - y.profit) / Math.abs(y.profit)) * 100);
-    delta.textContent = (p >= 0 ? '↑ +' : '↓ ') + p + '% vs ontem';
+    delta.innerHTML = (p >= 0 ? svgUp : svgDown) + (p >= 0 ? '+' : '') + p + '% vs ontem';
     delta.classList.toggle('neg', p < 0);
   } else delta.textContent = 'hoje';
 
-  $('hVendas').textContent = t.salesCount;
-  $('hFat').textContent = fmtBRLshort(t.revenue);
+  countUpBRL($('heroFat'), t.revenue);
+  $('heroVendas').textContent = t.salesCount + ' venda' + (t.salesCount === 1 ? '' : 's');
+  $('hInvestido').textContent = fmtBRLshort(t.cost);
   $('hRoi').textContent = t.roi != null ? String(t.roi).replace('.', ',') + 'x' : '—';
 
-  // barra de energia: quanto do faturamento virou lucro
-  const ratio = t.revenue > 0 ? Math.max(0, Math.min(1, t.profit / t.revenue)) : 0;
-  $('energyBar').style.setProperty('--w', Math.round(ratio * 100) + '%');
-  $('energyBar').style.width = Math.round(ratio * 100) + '%';
-
   $('spendToday').textContent = fmtBRL(t.spend);
-  $('spendTaxToday').textContent = '+ ' + fmtBRL(t.tax) + ' imposto';
+  $('spendTaxToday').textContent = '+ ' + fmtBRL(t.tax) + ' de imposto';
 
-  countUpBRL($('mLucroMes'), m.profit);
+  // cards com deltas reais
+  $('mFatHoje').textContent = fmtBRLshort(t.revenue);
+  setDelta($('dFatHoje'), t.revenue, y.revenue);
+  $('mFatOntem').textContent = fmtBRLshort(y.revenue);
+  setDelta($('dFatOntem'), y.revenue, before ? before.revenue : null);
+  $('mInvestido').textContent = fmtBRLshort(t.cost);
+  setDelta($('dInvestido'), t.cost, y.cost);
+  $('mRoi').textContent = t.roi != null ? String(t.roi).replace('.', ',') + 'x' : '—';
+  setDelta($('dRoi'), t.roi, y.roi);
+
+  $('mLucroMes').textContent = fmtBRLshort(m.profit);
   $('mLucroMes').classList.toggle('neg', m.profit < 0);
-  countUpBRL($('mFatMes'), m.revenue);
-  countUpBRL($('mInvMes'), m.cost);
-  $('mRoiMes').textContent = m.roi != null ? String(m.roi).replace('.', ',') + 'x' : '—';
+  $('mFatMes').textContent = fmtBRLshort(m.revenue);
   $('mVendasMes').textContent = m.salesCount;
-  $('mTicket').textContent = m.salesCount > 0 ? fmtBRLshort(m.revenue / m.salesCount) : '—';
-  $('mOntem').textContent = fmtBRLshort(y.revenue);
 
-  // gauge ROI: 3x = anel completo
-  const circ = 163.4;
-  const frac = m.roi != null ? Math.max(0, Math.min(1, m.roi / 3)) : 0;
-  $('gaugeRoi').style.strokeDashoffset = (circ * (1 - frac)).toFixed(1);
+  // meteoros mostram valores reais (ticket médio ± variação)
+  if (m.salesCount > 0) {
+    const ticket = Math.round(m.revenue / m.salesCount);
+    moneyVals = [ticket, Math.round(ticket * 0.7), Math.round(ticket * 1.3), Math.round(ticket * 0.5), Math.round(ticket * 2)];
+  }
 
-  const [yy, mm, dd] = t.date.split('-');
-  const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  $('todayPill').textContent = `${+dd} de ${meses[+mm - 1]} · online`;
+  const [, mm, dd] = t.date.split('-');
+  const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  $('todayPill').textContent = `${+dd} de ${meses[+mm - 1]}`;
 }
 
 async function loadEvolution() {
   const to = brToday(), from = brToday(evDays - 1);
   const rows = await api(`/api/daily?from=${from}&to=${to}`);
   const map = Object.fromEntries(rows.map(r => [r.date, r]));
-  const labels = [], rev = [], profit = [];
+  const labels = [], curr = [];
   for (let i = evDays - 1; i >= 0; i--) {
     const d = brToday(i);
-    labels.push(d.slice(8, 10) + '/' + d.slice(5, 7));
-    rev.push(map[d] ? map[d].revenue : 0);
-    profit.push(map[d] ? map[d].profit : 0);
+    labels.push(+d.slice(8, 10) + '/' + +d.slice(5, 7));
+    curr.push(map[d] ? map[d].revenue : 0);
   }
 
-  // período anterior (mesma quantidade de dias, logo antes)
   let prev = null;
-  if (evCompare) {
-    const pTo = brToday(evDays), pFrom = brToday(evDays * 2 - 1);
-    const pRows = await api(`/api/daily?from=${pFrom}&to=${pTo}`);
+  if (compareOn) {
+    const pRows = await api(`/api/daily?from=${brToday(evDays * 2 - 1)}&to=${brToday(evDays)}`);
     const pMap = Object.fromEntries(pRows.map(r => [r.date, r]));
     prev = [];
     for (let i = evDays * 2 - 1; i >= evDays; i--) {
@@ -292,19 +340,24 @@ async function loadEvolution() {
   }
 
   const ctx = $('chartEv').getContext('2d');
-  const grad = ctx.createLinearGradient(0, 0, 0, 200);
-  grad.addColorStop(0, 'rgba(138,155,255,0.28)');
-  grad.addColorStop(1, 'rgba(138,155,255,0)');
-  const datasets = [
-    { label: 'Faturamento', data: rev, borderColor: '#8A9BFF', backgroundColor: grad, borderWidth: 2.4, fill: true, tension: 0.42, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#8A9BFF', pointHoverBorderColor: '#0A0A10', pointHoverBorderWidth: 2 },
-    { label: 'Lucro', data: profit, borderColor: '#4ADE9C', borderWidth: 2, fill: false, tension: 0.42, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#4ADE9C', pointHoverBorderColor: '#0A0A10', pointHoverBorderWidth: 2 }
-  ];
-  if (prev) datasets.push({ label: 'Período anterior', data: prev, borderColor: 'rgba(245,246,250,0.45)', borderWidth: 1.6, borderDash: [5, 5], fill: false, tension: 0.42, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#F5F6FA', pointHoverBorderColor: '#0A0A10', pointHoverBorderWidth: 2 });
+  const grad = ctx.createLinearGradient(0, 0, 0, 190);
+  grad.addColorStop(0, 'rgba(245,183,102,0.35)');
+  grad.addColorStop(1, 'rgba(245,183,102,0)');
+
+  const datasets = [{
+    label: 'Período atual', data: curr, borderColor: '#F5B766', backgroundColor: grad,
+    borderWidth: 2.5, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 5,
+    pointHoverBackgroundColor: '#F5B766', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2
+  }];
+  if (prev) datasets.push({
+    label: 'Período anterior', data: prev, borderColor: '#8C7BEF', backgroundColor: 'rgba(0,0,0,0)',
+    borderWidth: 2, borderDash: [5, 4], fill: false, tension: 0.4, pointRadius: 0, pointHoverRadius: 4,
+    pointHoverBackgroundColor: '#8C7BEF', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2
+  });
 
   $('evLegend').innerHTML =
-    '<span><span class="dot" style="background:var(--accent)"></span>Faturamento</span>' +
-    '<span><span class="dot" style="background:var(--green)"></span>Lucro</span>' +
-    (prev ? '<span><span class="dot" style="background:rgba(245,246,250,0.5)"></span>Período anterior</span>' : '');
+    '<span><span class="dot" style="background:var(--gold)"></span>Período atual</span>' +
+    (prev ? '<span><span class="dot" style="background:var(--violet)"></span>Período anterior</span>' : '');
 
   if (chartEv) chartEv.destroy();
   chartEv = new Chart(ctx, {
@@ -312,19 +365,19 @@ async function loadEvolution() {
     data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-      animation: { duration: 900, easing: 'easeOutCubic' },
+      animation: { duration: 1300, easing: 'easeOutCubic' },
       plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
         callbacks: { label: c => c.dataset.label + ': ' + fmtBRL(c.parsed.y) }
       }},
-      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#5A5E75', font: { size: 11, family: 'Inter' }, maxTicksLimit: 8, maxRotation: 0 } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 10.5, family: 'Inter' }, maxTicksLimit: 8, maxRotation: 0 } },
                 y: { display: false } }
     }
   });
 }
 
-$('evCompareToggle').addEventListener('click', () => {
-  evCompare = !evCompare;
-  $('evSwitch').classList.toggle('on', evCompare);
+$('compareToggle').addEventListener('click', () => {
+  compareOn = !compareOn;
+  $('switchEl').classList.toggle('on', compareOn);
   loadEvolution();
 });
 
@@ -334,34 +387,27 @@ async function loadHours() {
   const labels = rows.map(r => r.hour + 'h');
   const data = rows.map(r => r.sales);
   const max = Math.max(...data);
+  const colors = data.map(v => (max > 0 && v === max) ? '#F5B766' : 'rgba(140,123,239,0.55)');
   const ctx = $('chartHours').getContext('2d');
-  const grad = ctx.createLinearGradient(0, 0, 0, 170);
-  grad.addColorStop(0, 'rgba(138,155,255,0.3)');
-  grad.addColorStop(1, 'rgba(138,155,255,0)');
   if (chartHours) chartHours.destroy();
   chartHours = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets: [{
-      data, borderColor: '#8A9BFF', backgroundColor: grad, borderWidth: 2.4, fill: true, tension: 0.45,
-      pointRadius: data.map(v => (max > 0 && v === max) ? 4 : 0),
-      pointBackgroundColor: '#F5F6FA', pointBorderColor: '#8A9BFF', pointBorderWidth: 2,
-      pointHoverRadius: 5, pointHoverBackgroundColor: '#8A9BFF', pointHoverBorderColor: '#0A0A10', pointHoverBorderWidth: 2
-    }]},
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 5, borderSkipped: false, barPercentage: 0.62 }] },
     options: {
-      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-      animation: { duration: 800, easing: 'easeOutCubic' },
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 900, easing: 'easeOutCubic' },
       plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
         callbacks: { label: c => c.parsed.y + ' venda' + (c.parsed.y === 1 ? '' : 's') }
       }},
-      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#5A5E75', font: { size: 10.5, family: 'Inter' }, maxTicksLimit: 12, maxRotation: 0 } },
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 9.5, family: 'Inter' }, maxTicksLimit: 12, maxRotation: 0 } },
                 y: { display: false } }
     }
   });
   if (max > 0) {
     const idx = data.indexOf(max);
-    $('peakBadge').textContent = `Pico às ${idx}h–${idx + 1}h · ${max} venda${max === 1 ? '' : 's'}`;
+    $('peakText').textContent = `Pico às ${idx}h–${idx + 1}h · ${max} venda${max === 1 ? '' : 's'}`;
   } else {
-    $('peakBadge').textContent = 'Sem vendas no período';
+    $('peakText').textContent = 'Sem vendas no período';
   }
 }
 
@@ -384,12 +430,12 @@ $('hPeriods').addEventListener('click', e => {
 $('btnEditSpend').addEventListener('click', () => {
   const today = brToday();
   openModal(`
-    <div class="modal-title">GASTO DE HOJE</div>
+    <div class="modal-title">Gasto de hoje</div>
     <div class="modal-sub">${fmtDate(today)} — digite o valor sem imposto</div>
     <input type="text" inputmode="decimal" id="mSpendVal" class="input w100" placeholder="Ex.: 350,00" style="margin-top:8px">
     <div class="tax-preview" id="mTaxPrev"></div>
-    <button class="btn-neon w100" id="mSaveSpend">SALVAR</button>
-    <button class="btn-ghost w100" id="mCancel" style="margin-top:10px">CANCELAR</button>
+    <button class="btn-gold w100" id="mSaveSpend">Salvar</button>
+    <button class="btn-ghost w100" id="mCancel" style="margin-top:10px">Cancelar</button>
   `);
   const inp = $('mSpendVal');
   inp.focus();
@@ -433,10 +479,10 @@ async function loadSpendList() {
   el.innerHTML = rows.map(r => `
     <div class="sale-row">
       <div class="sale-info">
-        <div class="sale-amt">${fmtBRL(r.amount)} <span style="color:var(--magenta);font-size:10.5px">+${fmtBRL(r.amount * TAX)}</span></div>
+        <div class="sale-amt">${fmtBRL(r.amount)} <span style="color:var(--rose);font-size:11px">+${fmtBRL(r.amount * TAX)}</span></div>
         <div class="sale-meta">${fmtDate(r.date)} — total ${fmtBRL(r.amount * (1 + TAX))}</div>
       </div>
-      <button class="btn-ghost" data-editspend="${r.date}" data-val="${r.amount}">EDITAR</button>
+      <button class="btn-ghost" data-editspend="${r.date}" data-val="${r.amount}">Editar</button>
     </div>`).join('');
   el.querySelectorAll('[data-editspend]').forEach(b => b.addEventListener('click', () => {
     $('spendDate').value = b.dataset.editspend;
@@ -462,7 +508,7 @@ $('btnImport').addEventListener('click', async () => {
   }
 });
 
-/* ================= COMPARAR ================= */
+/* ================= COMPARAR DIAS ================= */
 $('cmpA').value = brToday();
 (function () {
   const d = new Date(brToday() + 'T12:00:00Z');

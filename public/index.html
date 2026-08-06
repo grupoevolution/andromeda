@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0A0A10">
+<meta name="theme-color" content="#08060F">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Andrômeda — Painel de Resultados</title>
@@ -11,25 +11,30 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-<!-- céu -->
-<canvas id="fx"></canvas>
-<div class="vignette"></div>
+<div class="sky">
+  <div class="nebula n1"></div>
+  <div class="nebula n2"></div>
+  <canvas id="fx"></canvas>
+</div>
+<div class="grain"></div>
 
 <!-- ===================== LOGIN ===================== -->
 <div id="loginScreen" class="login hidden">
-  <div class="login-inner">
-    <div class="ring-logo">
-      <div class="ring r1"></div>
-      <div class="ring r2"></div>
-      <div class="ring r3"></div>
-      <div class="ring-core">A</div>
+  <div class="login-inner fade-up">
+    <div class="brand-mark big">
+      <svg viewBox="0 0 24 24" fill="none" stroke="url(#gg0)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <defs><linearGradient id="gg0" x1="0" y1="0" x2="24" y2="24"><stop offset="0%" stop-color="#FFD9A0"/><stop offset="100%" stop-color="#F5B766"/></linearGradient></defs>
+        <path d="M12 2l1.8 6.6L20 10l-6.2 1.9L12 18l-1.8-6.1L4 10l6.2-1.4z"/>
+        <circle cx="19" cy="18" r="1.4" fill="#C9BBFF" stroke="none"/>
+        <circle cx="5" cy="6" r="1" fill="#C9BBFF" stroke="none"/>
+      </svg>
     </div>
-    <h1 class="login-title glitch-in">Andrômeda</h1>
+    <h1 class="login-title">Andrômeda</h1>
     <p class="login-sub">Digite seu PIN de acesso</p>
     <div class="pin-dots" id="pinDots"><span></span><span></span><span></span><span></span></div>
     <p class="pin-error" id="pinError"></p>
@@ -51,137 +56,186 @@
 <!-- ===================== APP ===================== -->
 <div id="app" class="shell hidden">
 
-  <header class="topbar">
+  <div class="topbar fade-up" style="--d:.02s">
     <div class="brand">
-      <div class="mini-ring"><span></span></div>
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="url(#gg)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <defs><linearGradient id="gg" x1="0" y1="0" x2="24" y2="24"><stop offset="0%" stop-color="#FFD9A0"/><stop offset="100%" stop-color="#F5B766"/></linearGradient></defs>
+          <path d="M12 2l1.8 6.6L20 10l-6.2 1.9L12 18l-1.8-6.1L4 10l6.2-1.4z"/>
+          <circle cx="19" cy="18" r="1.4" fill="#C9BBFF" stroke="none"/>
+          <circle cx="5" cy="6" r="1" fill="#C9BBFF" stroke="none"/>
+        </svg>
+      </div>
       <div>
         <div class="brand-name">Andrômeda</div>
-        <div class="brand-sub"><i class="live-dot"></i><span id="todayPill">—</span></div>
+        <div class="brand-sub">PAINEL DE RESULTADOS</div>
       </div>
     </div>
-    <button class="burger" id="btnMenu" aria-label="Menu">
-      <span></span><span></span><span></span>
-    </button>
-  </header>
+    <div class="top-right">
+      <div class="date-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span id="todayPill">—</span>
+      </div>
+      <button class="burger" id="btnMenu" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
 
   <!-- ========= PAINEL ========= -->
   <main id="page-painel" class="page">
 
-    <!-- HERO -->
-    <section class="hero hud rise" style="--d:.05s">
-      <div class="hero-head">
-        <div class="hud-label"><i class="blip"></i>Lucro do dia</div>
-        <div class="badge-delta" id="heroDelta">—</div>
-      </div>
-
-      <div class="hero-main">
-        <div class="hero-value-wrap">
-          <div class="hero-value" id="heroLucro">R$ 0,00</div>
-          <div class="hero-caption">faturamento − anúncios − imposto de 12,15%</div>
+    <div class="hero-wrap fade-up" style="--d:.08s">
+      <div class="hero sheen">
+        <div class="hero-top">
+          <div class="hero-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>
+            Lucro do dia
+          </div>
+          <div class="badge-delta" id="heroDelta">—</div>
         </div>
-      </div>
+        <div class="hero-value" id="heroLucro">R$ 0</div>
+        <div class="hero-caption">Já descontado o gasto de anúncios + imposto de 12,15%</div>
 
-      <div class="hero-stats">
-        <div class="hstat"><div class="k">Vendas</div><div class="v num" id="hVendas">0</div></div>
-        <div class="hstat"><div class="k">Faturado</div><div class="v" id="hFat">—</div></div>
-        <div class="hstat"><div class="k">ROI</div><div class="v accent" id="hRoi">—</div></div>
-      </div>
-      <div class="energy"><i id="energyBar"></i></div>
-    </section>
-
-    <!-- gasto -->
-    <button class="spend-strip hud rise" style="--d:.12s" id="btnEditSpend">
-      <span class="spend-pulse"></span>
-      <span class="spend-mid">
-        <span class="hud-label">Anúncios hoje</span>
-        <span class="spend-v"><b id="spendToday">R$ 0,00</b><em id="spendTaxToday">+ R$ 0,00 imposto</em></span>
-      </span>
-      <span class="spend-edit">Editar</span>
-    </button>
-
-    <!-- mês -->
-    <div class="hud-label section rise" style="--d:.18s">Este mês <span class="rule"></span></div>
-    <div class="grid">
-      <div class="mcard hud rise" style="--d:.20s">
-        <div class="mcard-label">Lucro</div>
-        <div class="mcard-value green" id="mLucroMes">—</div>
-      </div>
-      <div class="mcard hud rise" style="--d:.24s">
-        <div class="mcard-label">Faturado</div>
-        <div class="mcard-value" id="mFatMes">—</div>
-      </div>
-      <div class="mcard hud rise" style="--d:.28s">
-        <div class="mcard-label">Investido <small>c/ imposto</small></div>
-        <div class="mcard-value rose" id="mInvMes">—</div>
-      </div>
-      <div class="mcard hud gauge-card rise" style="--d:.32s">
-        <div>
-          <div class="mcard-label">ROI</div>
-          <div class="mcard-value accent" id="mRoiMes">—</div>
+        <div class="hero-sub">
+          <div class="hero-sub-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>
+          </div>
+          <div class="hero-sub-text">
+            <div class="hero-sub-k">Faturamento de hoje</div>
+            <div class="hero-sub-v" id="heroFat">R$ 0</div>
+          </div>
+          <div class="hero-sub-n" id="heroVendas">0 vendas</div>
         </div>
-        <svg class="gauge" viewBox="0 0 64 64">
-          <circle class="g-bg" cx="32" cy="32" r="26"/>
-          <circle class="g-val" id="gaugeRoi" cx="32" cy="32" r="26"/>
-        </svg>
-      </div>
-      <div class="mcard hud wide rise" style="--d:.36s">
-        <div class="mcard-row">
-          <div><div class="mcard-label">Vendas no mês</div><div class="mcard-value num" id="mVendasMes">—</div></div>
-          <div class="vr"></div>
-          <div><div class="mcard-label">Ticket médio</div><div class="mcard-value" id="mTicket">—</div></div>
-          <div class="vr"></div>
-          <div><div class="mcard-label">Ontem</div><div class="mcard-value" id="mOntem">—</div></div>
+
+        <div class="hero-foot">
+          <div class="hero-foot-item"><div class="k">Investido</div><div class="v" id="hInvestido">—</div></div>
+          <div class="hero-foot-item"><div class="k">ROI</div><div class="v roi" id="hRoi">—</div></div>
+          <div class="hero-foot-item"><div class="k">Imposto</div><div class="v">12,15%</div></div>
         </div>
       </div>
     </div>
 
-    <!-- evolução -->
-    <section class="panel hud rise" style="--d:.40s">
-      <div class="panel-head">
-        <div>
-          <div class="panel-title">Evolução</div>
-          <div class="panel-sub">faturamento e lucro por dia</div>
+    <button class="spend-strip fade-up sheen" style="--d:.11s" id="btnEditSpend">
+      <span class="spend-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg>
+      </span>
+      <span class="spend-mid">
+        <span class="spend-k">Gasto em anúncios hoje</span>
+        <span class="spend-v"><b id="spendToday">R$ 0,00</b><em id="spendTaxToday">+ R$ 0,00 de imposto</em></span>
+      </span>
+      <span class="spend-edit">Editar</span>
+    </button>
+
+    <div class="grid">
+      <div class="mcard fade-up sheen" style="--d:.14s">
+        <div class="mcard-top">
+          <div class="mcard-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+          <div class="mcard-delta" id="dFatHoje"></div>
         </div>
-        <div class="cmp-toggle" id="evCompareToggle">
-          Comparar
-          <div class="switch" id="evSwitch"></div>
+        <div class="mcard-label">Faturado hoje</div>
+        <div class="mcard-value" id="mFatHoje">—</div>
+      </div>
+
+      <div class="mcard fade-up sheen" style="--d:.18s">
+        <div class="mcard-top">
+          <div class="mcard-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg></div>
+          <div class="mcard-delta" id="dFatOntem"></div>
+        </div>
+        <div class="mcard-label">Faturado ontem</div>
+        <div class="mcard-value" id="mFatOntem">—</div>
+      </div>
+
+      <div class="mcard fade-up sheen" style="--d:.22s">
+        <div class="mcard-top">
+          <div class="mcard-icon ic-rose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2v-5h-4a2 2 0 000 4"/></svg></div>
+          <div class="mcard-delta" id="dInvestido"></div>
+        </div>
+        <div class="mcard-label">Valor investido <small>c/ imposto</small></div>
+        <div class="mcard-value" id="mInvestido">—</div>
+      </div>
+
+      <div class="mcard fade-up sheen" style="--d:.26s">
+        <div class="mcard-top">
+          <div class="mcard-icon ic-gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></div>
+          <div class="mcard-delta" id="dRoi"></div>
+        </div>
+        <div class="mcard-label">ROI</div>
+        <div class="mcard-value gold" id="mRoi">—</div>
+      </div>
+
+      <div class="mcard wide fade-up sheen" style="--d:.28s">
+        <div class="mcard-row">
+          <div><div class="mcard-label">Lucro do mês</div><div class="mcard-value green" id="mLucroMes">—</div></div>
+          <div class="vr"></div>
+          <div><div class="mcard-label">Faturado no mês</div><div class="mcard-value" id="mFatMes">—</div></div>
+          <div class="vr"></div>
+          <div><div class="mcard-label">Vendas</div><div class="mcard-value" id="mVendasMes">—</div></div>
         </div>
       </div>
+    </div>
+
+    <div class="chart-card fade-up" style="--d:.3s">
+      <div class="chart-head">
+        <div>
+          <div class="chart-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>
+            Evolução do período
+          </div>
+          <div class="chart-title-sub">Faturamento por dia</div>
+        </div>
+        <div class="compare-toggle" id="compareToggle">
+          Comparar
+          <div class="switch" id="switchEl"></div>
+        </div>
+      </div>
+
       <div class="period-row" id="evPeriods">
         <div class="pill active" data-days="7">7D</div>
         <div class="pill" data-days="15">15D</div>
         <div class="pill" data-days="30">30D</div>
       </div>
-      <div class="chart-wrap"><canvas id="chartEv"></canvas></div>
-      <div class="legend-row" id="evLegend">
-        <span><span class="dot" style="background:var(--accent)"></span>Faturamento</span>
-        <span><span class="dot" style="background:var(--green)"></span>Lucro</span>
-      </div>
-    </section>
 
-    <!-- horários -->
-    <section class="panel hud rise" style="--d:.44s">
-      <div class="panel-head">
+      <div class="chart-wrap"><canvas id="chartEv"></canvas></div>
+
+      <div class="legend-row" id="evLegend">
+        <span><span class="dot" style="background:var(--gold)"></span>Período atual</span>
+      </div>
+    </div>
+
+    <div class="chart-card fade-up" style="--d:.34s">
+      <div class="chart-head">
         <div>
-          <div class="panel-title">Horários de pico</div>
-          <div class="panel-sub">quando as vendas mais saem</div>
+          <div class="chart-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+            Horários de pico
+          </div>
+          <div class="chart-title-sub">Quando as vendas mais saem</div>
         </div>
       </div>
+
       <div class="period-row" id="hPeriods">
         <div class="pill active" data-hdays="1">Hoje</div>
         <div class="pill" data-hdays="7">7D</div>
         <div class="pill" data-hdays="30">30D</div>
       </div>
-      <div class="chart-wrap short"><canvas id="chartHours"></canvas></div>
-      <div class="peak-badge" id="peakBadge">Sem vendas no período</div>
-    </section>
 
-    <!-- comparar -->
-    <section class="panel hud rise" style="--d:.48s">
-      <div class="panel-head">
+      <div class="chart-wrap short"><canvas id="chartHours"></canvas></div>
+
+      <div class="peak-badge" id="peakBadge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+        <span id="peakText">Sem vendas no período</span>
+      </div>
+    </div>
+
+    <div class="chart-card fade-up" style="--d:.36s">
+      <div class="chart-head">
         <div>
-          <div class="panel-title">Comparar dias</div>
-          <div class="panel-sub">ex.: dia 8 deste mês × dia 8 do mês passado</div>
+          <div class="chart-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Comparar dias
+          </div>
+          <div class="chart-title-sub">Ex.: dia 8 deste mês × dia 8 do mês passado</div>
         </div>
       </div>
       <div class="cmp-row">
@@ -189,9 +243,16 @@
         <span class="cmp-x">×</span>
         <input type="date" id="cmpB" class="input">
       </div>
-      <button class="btn-neon w100" id="btnCompare">Comparar</button>
+      <button class="btn-gold w100" id="btnCompare">Comparar</button>
       <div id="cmpResult" class="cmp-result hidden"></div>
-    </section>
+    </div>
+
+    <div class="tax-note fade-up" style="--d:.38s">
+      <div class="tax-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 00-2 2v4M15 3h4a2 2 0 012 2v4M9 21H5a2 2 0 01-2-2v-4M15 21h4a2 2 0 002-2v-4M9 9h.01M15 15h.01M9 15L15 9"/></svg>
+      </div>
+      <p>Imposto de <b>12,15%</b> aplicado sobre o gasto de anúncios — já considerado no lucro do dia.</p>
+    </div>
 
     <div class="foot-space"></div>
   </main>
@@ -200,11 +261,14 @@
   <main id="page-anuncios" class="page hidden">
     <button class="back" data-back>← Voltar ao painel</button>
 
-    <section class="panel hud rise">
-      <div class="panel-head">
+    <div class="chart-card fade-up">
+      <div class="chart-head">
         <div>
-          <div class="panel-title">Gasto com anúncios</div>
-          <div class="panel-sub">o imposto de 12,15% é somado automaticamente</div>
+          <div class="chart-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg>
+            Gasto com anúncios
+          </div>
+          <div class="chart-title-sub">O imposto de 12,15% é somado automaticamente</div>
         </div>
       </div>
       <label class="field-label">Data</label>
@@ -212,25 +276,25 @@
       <label class="field-label">Valor gasto (sem imposto)</label>
       <input type="text" inputmode="decimal" id="spendValue" class="input w100" placeholder="Ex.: 350,00">
       <div class="tax-preview" id="taxPreview"></div>
-      <button class="btn-neon w100" id="btnSaveSpend">Salvar gasto</button>
-    </section>
+      <button class="btn-gold w100" id="btnSaveSpend">Salvar gasto</button>
+    </div>
 
-    <section class="panel hud rise" style="--d:.08s">
-      <div class="panel-head"><div><div class="panel-title">Últimos gastos</div></div></div>
+    <div class="chart-card fade-up" style="--d:.08s">
+      <div class="chart-head"><div><div class="chart-title">Últimos gastos</div></div></div>
       <div id="spendList" class="list"></div>
-    </section>
+    </div>
 
-    <section class="panel hud rise" style="--d:.14s">
-      <div class="panel-head">
+    <div class="chart-card fade-up" style="--d:.14s">
+      <div class="chart-head">
         <div>
-          <div class="panel-title">Importar vendas antigas</div>
-          <div class="panel-sub">cole o CSV exportado da Kirvano — só entram vendas aprovadas</div>
+          <div class="chart-title">Importar vendas antigas</div>
+          <div class="chart-title-sub">Cole o CSV exportado da Kirvano — só entram vendas aprovadas</div>
         </div>
       </div>
       <textarea id="csvBox" class="input w100" rows="5" placeholder="data;valor;status&#10;01/07/2026 14:32;97,00;Aprovado"></textarea>
-      <button class="btn-neon w100" id="btnImport">Importar</button>
+      <button class="btn-gold w100" id="btnImport">Importar</button>
       <p class="hint" id="importResult"></p>
-    </section>
+    </div>
     <div class="foot-space"></div>
   </main>
 
@@ -238,24 +302,24 @@
   <main id="page-config" class="page hidden">
     <button class="back" data-back>← Voltar ao painel</button>
 
-    <section class="panel hud rise">
-      <div class="panel-head"><div><div class="panel-title">Notificações</div>
-      <div class="panel-sub">receba um aviso a cada venda aprovada</div></div></div>
-      <button class="btn-neon w100" id="btnEnablePush">Ativar notificações</button>
+    <div class="chart-card fade-up">
+      <div class="chart-head"><div><div class="chart-title">Notificações</div>
+      <div class="chart-title-sub">Receba um aviso a cada venda aprovada</div></div></div>
+      <button class="btn-gold w100" id="btnEnablePush">Ativar notificações</button>
       <button class="btn-ghost w100" id="btnTestPush" style="margin-top:10px">Enviar teste</button>
       <p class="hint" id="pushStatus"></p>
-    </section>
+    </div>
 
-    <section class="panel hud rise" style="--d:.08s">
-      <div class="panel-head"><div><div class="panel-title">Webhook da Kirvano</div>
-      <div class="panel-sub">cole esta URL na Kirvano (venda aprovada + reembolso)</div></div></div>
+    <div class="chart-card fade-up" style="--d:.08s">
+      <div class="chart-head"><div><div class="chart-title">Webhook da Kirvano</div>
+      <div class="chart-title-sub">Cole esta URL na Kirvano (venda aprovada + reembolso)</div></div></div>
       <div class="code-box" id="webhookUrl">—</div>
       <button class="btn-ghost w100" id="btnCopyWebhook">Copiar URL</button>
-    </section>
+    </div>
 
-    <section class="panel hud rise" style="--d:.14s">
-      <button class="btn-ghost w100 danger" id="btnLogout">Encerrar sessão</button>
-    </section>
+    <div class="chart-card fade-up" style="--d:.14s">
+      <button class="btn-ghost w100 danger" id="btnLogout">Sair</button>
+    </div>
     <div class="foot-space"></div>
   </main>
 
@@ -266,16 +330,25 @@
       <div class="brand-name">Menu</div>
       <button class="drawer-close" id="btnCloseMenu" aria-label="Fechar">✕</button>
     </div>
-    <button class="drawer-item" data-goto="painel"><i>01</i>Painel</button>
-    <button class="drawer-item" data-goto="anuncios"><i>02</i>Anúncios</button>
-    <button class="drawer-item" data-goto="config"><i>03</i>Configurações</button>
+    <button class="drawer-item" data-goto="painel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>
+      Painel
+    </button>
+    <button class="drawer-item" data-goto="anuncios">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg>
+      Anúncios
+    </button>
+    <button class="drawer-item" data-goto="config">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3h.1a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5h.1a1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8v.1a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>
+      Configurações
+    </button>
     <div class="drawer-foot">Andrômeda · painel de resultados</div>
   </aside>
 </div>
 
 <!-- modal -->
 <div id="modal" class="modal hidden">
-  <div class="modal-card hud" id="modalCard"></div>
+  <div class="modal-card" id="modalCard"></div>
 </div>
 
 <div id="toast" class="toast hidden"></div>
