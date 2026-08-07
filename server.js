@@ -75,10 +75,22 @@ function brNow() {
   return { date: s.slice(0, 10), hour: parseInt(s.slice(11, 13), 10) };
 }
 function brDateHourFrom(isoLike) {
-  const d = new Date(isoLike);
+  if (!isoLike) return null;
+  const s = String(isoLike).trim();
+  // dd/mm/aaaa hh:mm — horário do Brasil, usa direto
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2}))?/);
+  if (m) return { date: `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`, hour: m[4] != null ? parseInt(m[4], 10) : null };
+  // aaaa-mm-dd hh:mm SEM fuso — a Kirvano manda no horário de Brasília, usa direto
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+  if (m) return { date: `${m[1]}-${m[2]}-${m[3]}`, hour: parseInt(m[4], 10) };
+  // só a data
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return { date: s, hour: null };
+  // com fuso explícito (Z ou ±hh:mm) — converte pra Brasília
+  const d = new Date(s);
   if (isNaN(d)) return null;
-  const s = d.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' });
-  return { date: s.slice(0, 10), hour: parseInt(s.slice(11, 13), 10) };
+  const t = d.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  return { date: t.slice(0, 10), hour: parseInt(t.slice(11, 13), 10) };
 }
 
 // ---- auth ----

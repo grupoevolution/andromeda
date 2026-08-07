@@ -4,42 +4,59 @@ const $ = id => document.getElementById(id);
 
 let token = localStorage.getItem('andromeda_token') || sessionStorage.getItem('andromeda_token') || null;
 
-/* ================= céu galáctico: constelações + meteoros dourados ================= */
+/* ================= céu galáctico (versão leve) =================
+   - resolução 1x (sem retina) e no máx. 30fps
+   - estrelas + constelações desenhadas UMA vez numa camada estática
+   - só meteoros/fagulhas/textos são redesenhados por quadro
+   - pausa por completo quando o app está em segundo plano            */
 let moneyVals = [48, 75, 120, 32, 96, 210, 64, 155]; // atualizado com valores reais após o load
 (function () {
   const canvas = $('fx');
   const c = canvas.getContext('2d');
-  let W, H;
-  const DPR = Math.min(window.devicePixelRatio || 1, 2);
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W, H, staticLayer = null, twinklers = [];
+  let meteors = [], bursts = [], moneyTexts = [];
+  let rafId = null, lastFrame = 0, lastSpawn = 0;
 
-  let stars = [], links = [];
   function resize() {
     W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W * DPR; canvas.height = H * DPR;
-    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-    c.setTransform(DPR, 0, 0, DPR, 0, 0);
-    buildStars();
+    canvas.width = W; canvas.height = H;
+    build();
   }
 
-  function buildStars() {
-    stars = [];
-    const count = Math.floor((W * H) / 10000);
+  function build() {
+    const stars = [];
+    const count = Math.min(150, Math.floor((W * H) / 12000));
     for (let i = 0; i < count; i++) {
-      stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.2 + 0.4, phase: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.8 });
+      stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.2 + 0.4 });
     }
-    links = [];
+    // camada estática: links + estrelas de fundo
+    staticLayer = document.createElement('canvas');
+    staticLayer.width = W; staticLayer.height = H;
+    const sc = staticLayer.getContext('2d');
     const maxD = 100;
-    for (let i = 0; i < stars.length; i++) {
-      for (let j = i + 1; j < stars.length; j++) {
+    let linkCount = 0;
+    for (let i = 0; i < stars.length && linkCount < 220; i++) {
+      for (let j = i + 1; j < stars.length && linkCount < 220; j++) {
         const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y;
         const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < maxD) links.push([i, j, 1 - d / maxD]);
+        if (d < maxD) {
+          sc.strokeStyle = 'rgba(201,187,255,' + ((1 - d / maxD) * 0.08).toFixed(3) + ')';
+          sc.lineWidth = 1;
+          sc.beginPath(); sc.moveTo(stars[i].x, stars[i].y); sc.lineTo(stars[j].x, stars[j].y); sc.stroke();
+          linkCount++;
+        }
       }
     }
+    for (const st of stars) {
+      sc.beginPath();
+      sc.fillStyle = 'rgba(255,255,255,0.45)';
+      sc.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+      sc.fill();
+    }
+    // poucas estrelas piscando por cima
+    twinklers = stars.slice(0, 24).map(s => ({ ...s, phase: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 0.8 }));
   }
-
-  let meteors = [], bursts = [], moneyTexts = [];
 
   function spawnMeteor() {
     meteors.push({
@@ -61,23 +78,20 @@ let moneyVals = [48, 75, 120, 32, 96, 210, 64, 155]; // atualizado com valores r
     }
   }
 
-  let lastSpawn = 0;
   function frame(ts) {
+    rafId = requestAnimationFrame(frame);
+    if (ts - lastFrame < 33) return; // ~30fps
+    const dt = Math.min((ts - lastFrame) / 16.7, 3); // compensa o passo
+    lastFrame = ts;
+
     c.clearRect(0, 0, W, H);
+    c.drawImage(staticLayer, 0, 0);
 
-    for (let l = 0; l < links.length; l++) {
-      const a = stars[links[l][0]], b = stars[links[l][1]];
-      c.strokeStyle = 'rgba(201,187,255,' + (links[l][2] * 0.08).toFixed(3) + ')';
-      c.lineWidth = 1;
-      c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.stroke();
-    }
-
-    for (let s = 0; s < stars.length; s++) {
-      const st = stars[s];
-      const alpha = 0.22 + 0.55 * (0.5 + 0.5 * Math.sin((ts || 0) * 0.001 * st.speed + st.phase));
+    for (const st of twinklers) {
+      const alpha = 0.15 + 0.6 * (0.5 + 0.5 * Math.sin(ts * 0.001 * st.speed + st.phase));
       c.beginPath();
       c.fillStyle = 'rgba(255,255,255,' + alpha.toFixed(2) + ')';
-      c.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+      c.arc(st.x, st.y, st.r + 0.3, 0, Math.PI * 2);
       c.fill();
     }
 
@@ -88,7 +102,7 @@ let moneyVals = [48, 75, 120, 32, 96, 210, 64, 155]; // atualizado com valores r
 
       for (let m = meteors.length - 1; m >= 0; m--) {
         const mt = meteors[m];
-        mt.x += mt.vx; mt.y += mt.vy;
+        mt.x += mt.vx * dt; mt.y += mt.vy * dt;
         const tailX = mt.x - mt.vx * 11, tailY = mt.y - mt.vy * 11;
         const grd = c.createLinearGradient(tailX, tailY, mt.x, mt.y);
         grd.addColorStop(0, 'rgba(0,0,0,0)');
@@ -104,7 +118,7 @@ let moneyVals = [48, 75, 120, 32, 96, 210, 64, 155]; // atualizado com valores r
 
       for (let bi = bursts.length - 1; bi >= 0; bi--) {
         const bu = bursts[bi];
-        bu.x += bu.vx; bu.y += bu.vy; bu.vy += 0.03; bu.life -= 0.02;
+        bu.x += bu.vx * dt; bu.y += bu.vy * dt; bu.vy += 0.03 * dt; bu.life -= 0.02 * dt;
         if (bu.life <= 0) { bursts.splice(bi, 1); continue; }
         c.beginPath(); c.globalAlpha = Math.max(bu.life, 0);
         c.fillStyle = '#FBC98A'; c.arc(bu.x, bu.y, bu.r, 0, Math.PI * 2); c.fill();
@@ -113,7 +127,7 @@ let moneyVals = [48, 75, 120, 32, 96, 210, 64, 155]; // atualizado com valores r
 
       for (let ti = moneyTexts.length - 1; ti >= 0; ti--) {
         const mtx = moneyTexts[ti];
-        mtx.y += mtx.vy; mtx.life -= 0.011;
+        mtx.y += mtx.vy * dt; mtx.life -= 0.011 * dt;
         if (mtx.life <= 0) { moneyTexts.splice(ti, 1); continue; }
         c.globalAlpha = Math.max(mtx.life, 0);
         c.fillStyle = '#F5B766'; c.font = '600 11px "JetBrains Mono", monospace';
@@ -121,13 +135,15 @@ let moneyVals = [48, 75, 120, 32, 96, 210, 64, 155]; // atualizado com valores r
         c.globalAlpha = 1;
       }
     }
-
-    requestAnimationFrame(frame);
   }
+
+  function start() { if (rafId == null) { lastFrame = 0; rafId = requestAnimationFrame(frame); } }
+  function stop() { if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; } }
+  document.addEventListener('visibilitychange', () => { document.hidden ? stop() : start(); });
 
   window.addEventListener('resize', resize);
   resize();
-  requestAnimationFrame(frame);
+  start();
 })();
 
 /* ================= helpers ================= */
@@ -637,6 +653,22 @@ function refreshAll() {
   loadEvolution().catch(() => {});
   loadHours().catch(() => {});
 }
+
+/* botão de atualizar manual (útil no app instalado, sem puxar-pra-atualizar) */
+$('btnRefresh').addEventListener('click', async () => {
+  const btn = $('btnRefresh');
+  btn.classList.add('spinning');
+  try {
+    const anuncios = !$('page-anuncios').classList.contains('hidden');
+    if (anuncios) { await Promise.all([loadSpendList(), loadSales(true)]); }
+    else { await Promise.all([loadSummary(), loadEvolution(), loadHours()]); }
+    toast('Atualizado ✓');
+  } catch (e) {
+    toast('Erro ao atualizar', 'err');
+  } finally {
+    setTimeout(() => btn.classList.remove('spinning'), 500);
+  }
+});
 
 async function showApp() {
   $('loginScreen').classList.add('hidden');
