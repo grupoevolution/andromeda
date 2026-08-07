@@ -113,11 +113,31 @@ function parseAmount(v) {
   return null;
 }
 
+// taxas da Kirvano (pra estimar a comissão quando o webhook não manda o valor líquido)
+const FIXED_FEE = parseFloat(process.env.KIRVANO_FIXED_FEE || '1.00');   // R$ por produto
+const PCT_FEE = parseFloat(process.env.KIRVANO_PCT_FEE || '4.9') / 100; // % sobre o valor
+
 function extractSale(body) {
-  const amount = parseAmount(
-    body.total_price ?? body.charge_amount ?? body.price ?? body.amount ??
-    body.sale_amount ?? (body.plan && body.plan.charge_amount) ?? null
+  // 1) se o payload trouxer a comissão/valor líquido, usa direto
+  let amount = parseAmount(
+    body.commission ?? body.commission_amount ?? body.producer_amount ??
+    body.net_amount ?? body.net_value ?? body.my_commission ?? null
   );
+
+  // 2) senão, estima: total − (R$1 fixo + 4,9%) por produto (taxa da Kirvano)
+  if (amount == null) {
+    const total = parseAmount(
+      body.total_price ?? body.charge_amount ?? body.price ?? body.amount ??
+      body.sale_amount ?? (body.plan && body.plan.charge_amount) ?? null
+    );
+    if (total != null) {
+      const nProducts = Array.isArray(body.products) && body.products.length ? body.products.length : 1;
+      // a Kirvano trunca a taxa nos centavos antes de descontar
+      const fee = Math.floor((nProducts * FIXED_FEE + total * PCT_FEE) * 100) / 100;
+      amount = +(total - fee).toFixed(2);
+      if (amount < 0) amount = total;
+    }
+  }
   const externalId = body.sale_id || body.checkout_id || body.transaction_id || body.id || null;
   const when = body.created_at || body.approved_at || body.event_date || null;
   const dh = (when && brDateHourFrom(when)) || brNow();
@@ -249,8 +269,9 @@ app.post('/api/import', auth, (req, res) => {
   let iDate = find('finalizada');
   if (iDate < 0) iDate = find('iniciada');
   if (iDate < 0) iDate = find('data', 'date', 'criado', 'created');
-  // valor: prioridade pra "Valor Pago", depois "Total" e genéricos
-  let iVal = find('valor pago');
+  // valor: prioridade pra "Comissão" (o que você recebe), depois "Valor Pago" e genéricos
+  let iVal = find(/comiss/);
+  if (iVal < 0) iVal = find('valor pago');
   if (iVal < 0) iVal = find('total', 'valor', 'preço', 'preco', 'price', 'amount');
   const iStatus = find('status', 'situa');
   const iProd = find('produto', 'product', 'oferta');
@@ -271,8 +292,12 @@ app.post('/api/import', auth, (req, res) => {
     return m ? parseInt(m[1], 10) : null;
   }
 
-  let imported = 0, skipped = 0, duplicates = 0;
-  const insert = db.prepare('INSERT OR IGNORE INTO sales(external_id, amount, date, hour, product, source) VALUES(?,?,?,?,?,?)');
+  let imported = 0, skipped = 0, duplicates = 0, updated = 0;
+  // reimportar o mesmo período corrige o valor de vendas já importadas
+  const insert = db.prepare(`INSERT INTO sales(external_id, amount, date, hour, product, source) VALUES(?,?,?,?,?,?)
+    ON CONFLICT(external_id) DO UPDATE SET amount=excluded.amount, date=excluded.date, hour=excluded.hour, product=excluded.product`);
+  const insertNoId = db.prepare('INSERT INTO sales(external_id, amount, date, hour, product, source) VALUES(?,?,?,?,?,?)');
+  const getByExt = db.prepare('SELECT amount FROM sales WHERE external_id=?');
   const dupCheck = db.prepare("SELECT 1 FROM sales WHERE date=? AND amount=? AND (hour IS ? OR hour=?) AND source!='import' LIMIT 1");
   const tx = db.transaction(() => {
     for (let i = 1; i < lines.length; i++) {
@@ -288,12 +313,21 @@ app.post('/api/import', auth, (req, res) => {
       // evita duplicar venda que já entrou pelo webhook (mesmo dia, hora e valor)
       if (dupCheck.get(d.date, v, d.hour, d.hour)) { duplicates++; continue; }
       const extId = iId >= 0 && cols[iId] ? 'import-' + cols[iId].trim() : null;
-      const r = insert.run(extId, v, d.date, d.hour, iProd >= 0 ? (cols[iProd] || '').trim() : null, 'import');
-      if (r.changes) imported++; else duplicates++;
+      const prod = iProd >= 0 ? (cols[iProd] || '').trim() : null;
+      if (extId) {
+        const existing = getByExt.get(extId);
+        insert.run(extId, v, d.date, d.hour, prod, 'import');
+        if (!existing) imported++;
+        else if (Math.abs(existing.amount - v) > 0.001) updated++;
+        else duplicates++;
+      } else {
+        insertNoId.run(null, v, d.date, d.hour, prod, 'import');
+        imported++;
+      }
     }
   });
   tx();
-  res.json({ ok: true, imported, skipped, duplicates });
+  res.json({ ok: true, imported, skipped, duplicates, updated });
 });
 
 // ---- resumo / dashboard ----

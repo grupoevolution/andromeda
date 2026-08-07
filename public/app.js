@@ -546,7 +546,7 @@ $('btnImport').addEventListener('click', async () => {
   if (!csv) return toast('Escolha o arquivo ou cole o CSV', 'err');
   try {
     const r = await api('/api/import', { method: 'POST', body: JSON.stringify({ csv }) });
-    $('importResult').textContent = `✓ ${r.imported} vendas importadas · ${r.duplicates || 0} já existiam · ${r.skipped} ignoradas (não aprovadas/estornadas).`;
+    $('importResult').textContent = `✓ ${r.imported} vendas importadas · ${r.updated || 0} corrigidas · ${r.duplicates || 0} já existiam · ${r.skipped} ignoradas (não aprovadas/estornadas).`;
     $('csvBox').value = '';
     csvFromFile = null;
     $('csvFile').value = '';
