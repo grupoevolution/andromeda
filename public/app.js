@@ -263,6 +263,7 @@ function goto(page) {
   window.scrollTo({ top: 0 });
   closeMenu();
   if (page === 'anuncios') { loadSpendList(); loadSales(true); }
+  if (page === 'config') { loadWebhookLog(); loadVersion(); }
   if (page === 'painel') refreshAll();
 }
 document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => goto(b.dataset.goto)));
@@ -633,6 +634,43 @@ function urlB64ToUint8Array(base64String) {
 }
 
 /* ================= CONFIG ================= */
+async function loadWebhookLog() {
+  try {
+    const rows = await api('/api/webhook-log');
+    const el = $('webhookLog');
+    if (!rows.length) { el.innerHTML = '<div class="empty">Nenhum evento recebido ainda (o registro começou nesta versão)</div>'; return; }
+    el.innerHTML = rows.map(r => {
+      const rec = r.received_at ? new Date(r.received_at.replace(' ', 'T') + 'Z').toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+      const ok = r.result && r.result.includes('registrada');
+      return `<div class="sale-row">
+        <div class="sale-info">
+          <div class="sale-amt" style="color:${ok ? 'var(--green)' : 'var(--text-2)'}">${r.amount != null ? fmtBRL(r.amount) : (r.event || '—')}</div>
+          <div class="sale-meta">chegou ${rec} · lançada em ${r.date ? fmtDate(r.date) + (r.hour != null ? ' às ' + r.hour + 'h' : '') : '—'} · ${r.result || ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { $('webhookLog').innerHTML = '<div class="empty">Erro ao carregar</div>'; }
+}
+$('btnReloadLog').addEventListener('click', loadWebhookLog);
+
+$('btnRepairDates').addEventListener('click', async () => {
+  try {
+    const r = await api('/api/repair-dates', { method: 'POST' });
+    $('repairResult').textContent = `✓ ${r.fixed} venda${r.fixed === 1 ? '' : 's'} corrigida${r.fixed === 1 ? '' : 's'} de ${r.total} verificadas.`;
+    toast('Datas corrigidas ✓');
+    refreshAll();
+  } catch (e) {
+    $('repairResult').textContent = '✗ ' + e.message;
+  }
+});
+
+async function loadVersion() {
+  try {
+    const r = await fetch('/api/health').then(r => r.json());
+    $('versionInfo').textContent = 'Andrômeda v' + (r.version || '?');
+  } catch (e) { /* offline */ }
+}
+
 $('btnLogout').addEventListener('click', logout);
 $('btnCopyWebhook').addEventListener('click', () => {
   navigator.clipboard.writeText($('webhookUrl').textContent);

@@ -335,8 +335,31 @@
       <button class="btn-ghost w100" id="btnCopyWebhook">Copiar URL</button>
     </div>
 
+    <div class="chart-card fade-up" style="--d:.11s">
+      <div class="chart-head">
+        <div>
+          <div class="chart-title">Eventos recebidos</div>
+          <div class="chart-title-sub">Últimos eventos do webhook e o que o sistema fez com cada um</div>
+        </div>
+        <button class="btn-ghost" id="btnReloadLog">Atualizar</button>
+      </div>
+      <div id="webhookLog" class="list"></div>
+    </div>
+
+    <div class="chart-card fade-up" style="--d:.13s">
+      <div class="chart-head">
+        <div>
+          <div class="chart-title">Corrigir datas das vendas</div>
+          <div class="chart-title-sub">Reposiciona vendas do webhook pela hora real em que chegaram (fuso de Brasília). Use se alguma venda caiu no dia errado.</div>
+        </div>
+      </div>
+      <button class="btn-gold w100" id="btnRepairDates">Corrigir datas</button>
+      <p class="hint" id="repairResult"></p>
+    </div>
+
     <div class="chart-card fade-up" style="--d:.14s">
       <button class="btn-ghost w100 danger" id="btnLogout">Sair</button>
+      <p class="hint" id="versionInfo" style="text-align:center"></p>
     </div>
     <div class="foot-space"></div>
   </main>

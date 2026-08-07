@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const Database = require('better-sqlite3');
 const webpush = require('web-push');
 
+const VERSION = require('./package.json').version;
 const PORT = process.env.PORT || 3000;
 const PIN = process.env.PIN || '1234';
 const TAX_RATE = 0.1215; // imposto do Facebook sobre o gasto de anúncio
@@ -42,6 +43,16 @@ CREATE TABLE IF NOT EXISTS push_subs (
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
+);
+CREATE TABLE IF NOT EXISTS webhook_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  received_at TEXT DEFAULT (datetime('now')),
+  event TEXT,
+  amount REAL,
+  date TEXT,
+  hour INTEGER,
+  result TEXT,
+  raw TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
 `);
@@ -159,20 +170,29 @@ function extractSale(body) {
   return { amount, externalId, date: dh.date, hour: dh.hour, product, customer };
 }
 
+const logWebhook = (event, s, result, body) => {
+  try {
+    db.prepare('INSERT INTO webhook_log(event, amount, date, hour, result, raw) VALUES(?,?,?,?,?,?)')
+      .run(event || null, s ? s.amount : null, s ? s.date : null, s ? s.hour : null, result, JSON.stringify(body).slice(0, 3000));
+    db.prepare("DELETE FROM webhook_log WHERE id NOT IN (SELECT id FROM webhook_log ORDER BY id DESC LIMIT 50)").run();
+  } catch (e) { /* log nunca derruba o webhook */ }
+};
+
 app.post('/webhook/kirvano', (req, res) => {
   const body = req.body || {};
   const event = String(body.event || body.event_type || body.type || body.status || '').toUpperCase();
   const s = extractSale(body);
 
   if (event.includes('APPROVED') || event.includes('APROVAD')) {
-    if (s.amount == null) return res.status(400).json({ error: 'valor não encontrado no payload' });
+    if (s.amount == null) { logWebhook(event, s, 'erro: sem valor', body); return res.status(400).json({ error: 'valor não encontrado no payload' }); }
     try {
       db.prepare('INSERT INTO sales(external_id, amount, date, hour, product, customer) VALUES(?,?,?,?,?,?)')
         .run(s.externalId, s.amount, s.date, s.hour, s.product, s.customer);
     } catch (e) {
-      if (String(e).includes('UNIQUE')) return res.json({ ok: true, duplicate: true });
+      if (String(e).includes('UNIQUE')) { logWebhook(event, s, 'duplicada', body); return res.json({ ok: true, duplicate: true }); }
       throw e;
     }
+    logWebhook(event, s, 'venda registrada', body);
     sendPush('Venda aprovada 💰', `+ R$ ${s.amount.toFixed(2).replace('.', ',')}${s.product ? ' — ' + s.product : ''}`);
     return res.json({ ok: true });
   }
@@ -185,10 +205,32 @@ app.post('/webhook/kirvano', (req, res) => {
       if (row) removed = db.prepare('DELETE FROM sales WHERE id=?').run(row.id).changes;
     }
     if (removed) sendPush('Reembolso ↩️', `- R$ ${(s.amount || 0).toFixed(2).replace('.', ',')} removido do painel`);
+    logWebhook(event, s, removed ? 'reembolso removido' : 'reembolso: venda não encontrada', body);
     return res.json({ ok: true, removed });
   }
 
+  logWebhook(event, s, 'ignorado', body);
   res.json({ ok: true, ignored: event || 'sem evento' });
+});
+
+// ---- diagnóstico ----
+app.get('/api/webhook-log', auth, (req, res) => {
+  res.json(db.prepare('SELECT id, received_at, event, amount, date, hour, result FROM webhook_log ORDER BY id DESC LIMIT 20').all());
+});
+
+// corrige a data de vendas do webhook usando a hora em que o evento CHEGOU (convertida pra Brasília)
+app.post('/api/repair-dates', auth, (req, res) => {
+  const rows = db.prepare("SELECT id, created_at, date, hour FROM sales WHERE source='webhook'").all();
+  const upd = db.prepare('UPDATE sales SET date=?, hour=? WHERE id=?');
+  let fixed = 0;
+  for (const r of rows) {
+    const d = new Date(r.created_at.replace(' ', 'T') + 'Z'); // created_at é UTC
+    if (isNaN(d)) continue;
+    const t = d.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+    const date = t.slice(0, 10), hour = parseInt(t.slice(11, 13), 10);
+    if (date !== r.date || hour !== r.hour) { upd.run(date, hour, r.id); fixed++; }
+  }
+  res.json({ ok: true, fixed, total: rows.length });
 });
 
 // ---- push ----
@@ -401,7 +443,7 @@ app.get('/api/compare', auth, (req, res) => {
   res.json({ a: { date: a, ...statsFor(a, a) }, b: { date: b, ...statsFor(b, b) } });
 });
 
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/health', (req, res) => res.json({ ok: true, version: VERSION }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
