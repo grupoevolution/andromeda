@@ -1,4 +1,4 @@
-const CACHE = 'andromeda-v7';
+const CACHE = 'andromeda-v8';
 const ASSETS = ['/', '/style.css', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', e => {

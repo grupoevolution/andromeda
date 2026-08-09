@@ -157,6 +157,13 @@ function brToday(offsetDays = 0) {
   const d = new Date(Date.now() - offsetDays * 86400000);
   return d.toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 10);
 }
+function dateOffsetStr(iso, n) {
+  const d = new Date(iso + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+/* data que o painel está mostrando (null = hoje, padrão) */
+let viewDate = null;
 function fmtDate(iso) {
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y.slice(2)}`;
@@ -279,16 +286,19 @@ const tooltipStyle = {
 };
 
 async function loadSummary() {
-  const s = await api('/api/summary');
-  const t = s.today, y = s.yesterday, m = s.month;
+  const s = await api('/api/summary' + (viewDate ? '?date=' + viewDate : ''));
+  const t = s.today, y = s.yesterday, m = s.month, now = s.now;
+  const viewing = t.date !== now.date; // olhando um dia que não é hoje
 
-  // anteontem (para o delta do card "faturado ontem")
+  // dia retrasado em relação ao dia visto (para o delta do segundo card)
   let before = null;
   try {
-    const bRows = await api(`/api/daily?from=${brToday(2)}&to=${brToday(2)}`);
+    const b = dateOffsetStr(t.date, 2);
+    const bRows = await api(`/api/daily?from=${b}&to=${b}`);
     before = bRows[0] || null;
   } catch (e) { /* sem dado, sem delta */ }
 
+  $('heroLabelText').textContent = viewing ? 'Lucro de ' + fmtDate(t.date) : 'Lucro do dia';
   const el = $('heroLucro');
   countUpBRL(el, t.profit);
   el.classList.toggle('neg', t.profit < 0);
@@ -296,23 +306,34 @@ async function loadSummary() {
   const delta = $('heroDelta');
   if (y.profit !== 0) {
     const p = Math.round(((t.profit - y.profit) / Math.abs(y.profit)) * 100);
-    delta.innerHTML = (p >= 0 ? svgUp : svgDown) + (p >= 0 ? '+' : '') + p + '% vs ontem';
+    delta.innerHTML = (p >= 0 ? svgUp : svgDown) + (p >= 0 ? '+' : '') + p + '% vs ' + (viewing ? 'dia anterior' : 'ontem');
     delta.classList.toggle('neg', p < 0);
-  } else delta.textContent = 'hoje';
+  } else delta.textContent = viewing ? fmtDate(t.date) : 'hoje';
 
+  $('heroFatLabel').textContent = viewing ? 'Faturamento de ' + fmtDate(t.date) : 'Faturamento de hoje';
   countUpBRL($('heroFat'), t.revenue);
   $('heroVendas').textContent = t.salesCount + ' venda' + (t.salesCount === 1 ? '' : 's');
   $('hInvestido').textContent = fmtBRLshort(t.cost);
   $('hRoi').textContent = t.roi != null ? String(t.roi).replace('.', ',') + 'x' : '—';
 
+  $('spendLabel').textContent = viewing ? 'Gasto em anúncios ' + fmtDate(t.date) : 'Gasto em anúncios hoje';
   $('spendToday').textContent = fmtBRL(t.spend);
   $('spendTaxToday').textContent = '+ ' + fmtBRL(t.tax) + ' de imposto';
 
-  // cards com deltas reais
+  // cards: 1º = dia visto · 2º = ontem (ou HOJE fixo, quando olhando outro dia)
+  $('mFatHojeLabel').textContent = viewing ? 'Faturado ' + fmtDate(t.date) : 'Faturado hoje';
   $('mFatHoje').textContent = fmtBRLshort(t.revenue);
   setDelta($('dFatHoje'), t.revenue, y.revenue);
-  $('mFatOntem').textContent = fmtBRLshort(y.revenue);
-  setDelta($('dFatOntem'), y.revenue, before ? before.revenue : null);
+
+  $('mFatOntemLabel').textContent = viewing ? 'Faturado hoje' : 'Faturado ontem';
+  if (viewing) {
+    $('mFatOntem').textContent = fmtBRLshort(now.revenue);
+    setDelta($('dFatOntem'), now.revenue, t.revenue); // hoje vs o dia visto
+  } else {
+    $('mFatOntem').textContent = fmtBRLshort(y.revenue);
+    setDelta($('dFatOntem'), y.revenue, before ? before.revenue : null);
+  }
+
   $('mInvestido').textContent = fmtBRLshort(t.cost);
   setDelta($('dInvestido'), t.cost, y.cost);
   $('mRoi').textContent = t.roi != null ? String(t.roi).replace('.', ',') + 'x' : '—';
@@ -332,7 +353,34 @@ async function loadSummary() {
   const [, mm, dd] = t.date.split('-');
   const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
   $('todayPill').textContent = `${+dd} de ${meses[+mm - 1]}`;
+  $('datePillBtn').classList.toggle('viewing', viewing);
 }
+
+/* ---- escolher a data do painel ---- */
+$('datePillBtn').addEventListener('click', () => {
+  const today = brToday();
+  openModal(`
+    <div class="modal-title">Ver painel de outro dia</div>
+    <div class="modal-sub">O painel volta pra hoje sempre que você quiser</div>
+    <input type="date" id="mViewDate" class="input w100" value="${viewDate || today}" max="${today}" style="margin-top:8px">
+    <div class="quick-dates">
+      <button class="btn-ghost" id="mQHoje">Hoje</button>
+      <button class="btn-ghost" id="mQOntem">Ontem</button>
+      <button class="btn-ghost" id="mQAnteontem">Anteontem</button>
+    </div>
+    <button class="btn-gold w100" id="mViewApply">Ver esse dia</button>
+  `);
+  const apply = d => {
+    viewDate = (d && d !== brToday()) ? d : null;
+    closeModal();
+    refreshAll();
+    toast(viewDate ? 'Mostrando ' + fmtDate(viewDate) : 'De volta pra hoje ✓');
+  };
+  $('mQHoje').onclick = () => apply(null);
+  $('mQOntem').onclick = () => apply(brToday(1));
+  $('mQAnteontem').onclick = () => apply(brToday(2));
+  $('mViewApply').onclick = () => apply($('mViewDate').value);
+});
 
 async function loadEvolution() {
   const to = brToday(), from = brToday(evDays - 1);
@@ -399,7 +447,8 @@ $('compareToggle').addEventListener('click', () => {
 });
 
 async function loadHours() {
-  const to = brToday(), from = brToday(hDays - 1);
+  const base = viewDate || brToday();
+  const to = base, from = dateOffsetStr(base, hDays - 1);
   const rows = await api(`/api/hours?from=${from}&to=${to}`);
   const labels = rows.map(r => r.hour + 'h');
   const data = rows.map(r => r.sales);
@@ -445,9 +494,9 @@ $('hPeriods').addEventListener('click', e => {
 
 /* ================= GASTO RÁPIDO ================= */
 $('btnEditSpend').addEventListener('click', () => {
-  const today = brToday();
+  const today = viewDate || brToday(); // edita o gasto do dia que está sendo visto
   openModal(`
-    <div class="modal-title">Gasto de hoje</div>
+    <div class="modal-title">Gasto de ${viewDate ? fmtDate(today) : 'hoje'}</div>
     <div class="modal-sub">${fmtDate(today)} — digite o valor sem imposto</div>
     <input type="text" inputmode="decimal" id="mSpendVal" class="input w100" placeholder="Ex.: 350,00" style="margin-top:8px">
     <div class="tax-preview" id="mTaxPrev"></div>

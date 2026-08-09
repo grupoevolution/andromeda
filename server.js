@@ -402,7 +402,9 @@ function statsFor(from, to) {
 }
 
 app.get('/api/summary', auth, (req, res) => {
-  const { date } = brNow();
+  const nowDate = brNow().date;
+  // ?date=AAAA-MM-DD permite ver o painel de um dia específico
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : nowDate;
   const y = new Date(date + 'T12:00:00Z'); y.setUTCDate(y.getUTCDate() - 1);
   const yesterday = y.toISOString().slice(0, 10);
   const monthStart = date.slice(0, 8) + '01';
@@ -410,6 +412,7 @@ app.get('/api/summary', auth, (req, res) => {
     today: { date, ...statsFor(date, date) },
     yesterday: { date: yesterday, ...statsFor(yesterday, yesterday) },
     month: { from: monthStart, to: date, ...statsFor(monthStart, date) },
+    now: { date: nowDate, ...statsFor(nowDate, nowDate) },
     taxRate: TAX_RATE
   });
 });

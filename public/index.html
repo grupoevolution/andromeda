@@ -75,10 +75,10 @@
       <button class="refresh-btn" id="btnRefresh" aria-label="Atualizar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-2.64-6.36M21 3v6h-6"/></svg>
       </button>
-      <div class="date-pill">
+      <button class="date-pill" id="datePillBtn" aria-label="Escolher data">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
         <span id="todayPill">—</span>
-      </div>
+      </button>
       <button class="burger" id="btnMenu" aria-label="Menu">
         <span></span><span></span><span></span>
       </button>
@@ -93,7 +93,7 @@
         <div class="hero-top">
           <div class="hero-label">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>
-            Lucro do dia
+            <span id="heroLabelText">Lucro do dia</span>
           </div>
           <div class="badge-delta" id="heroDelta">—</div>
         </div>
@@ -105,7 +105,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>
           </div>
           <div class="hero-sub-text">
-            <div class="hero-sub-k">Faturamento de hoje</div>
+            <div class="hero-sub-k" id="heroFatLabel">Faturamento de hoje</div>
             <div class="hero-sub-v" id="heroFat">R$ 0</div>
           </div>
           <div class="hero-sub-n" id="heroVendas">0 vendas</div>
@@ -124,7 +124,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg>
       </span>
       <span class="spend-mid">
-        <span class="spend-k">Gasto em anúncios hoje</span>
+        <span class="spend-k" id="spendLabel">Gasto em anúncios hoje</span>
         <span class="spend-v"><b id="spendToday">R$ 0,00</b><em id="spendTaxToday">+ R$ 0,00 de imposto</em></span>
       </span>
       <span class="spend-edit">Editar</span>
@@ -136,7 +136,7 @@
           <div class="mcard-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
           <div class="mcard-delta" id="dFatHoje"></div>
         </div>
-        <div class="mcard-label">Faturado hoje</div>
+        <div class="mcard-label" id="mFatHojeLabel">Faturado hoje</div>
         <div class="mcard-value" id="mFatHoje">—</div>
       </div>
 
@@ -145,7 +145,7 @@
           <div class="mcard-icon ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg></div>
           <div class="mcard-delta" id="dFatOntem"></div>
         </div>
-        <div class="mcard-label">Faturado ontem</div>
+        <div class="mcard-label" id="mFatOntemLabel">Faturado ontem</div>
         <div class="mcard-value" id="mFatOntem">—</div>
       </div>
 

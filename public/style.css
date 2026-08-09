@@ -74,8 +74,12 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:16.5px;letter-spacing:-0.01em;}
 .brand-sub{font-size:10.5px;color:var(--text-3);margin-top:1px;letter-spacing:0.03em;}
 .top-right{display:flex;align-items:center;gap:9px;}
-.date-pill{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);padding:8px 12px;border-radius:100px;font-size:12px;color:var(--text-2);font-weight:500;}
+.date-pill{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);padding:8px 12px;border-radius:100px;font-size:12px;color:var(--text-2);font-weight:500;cursor:pointer;transition:all .15s;}
 .date-pill svg{width:13px;height:13px;stroke:var(--gold);flex-shrink:0;}
+.date-pill:active{transform:scale(0.95);}
+.date-pill.viewing{border-color:var(--gold);color:var(--gold);background:rgba(245,183,102,0.1);box-shadow:0 0 14px -6px rgba(245,183,102,0.6);}
+.quick-dates{display:flex;gap:8px;margin-top:12px;}
+.quick-dates .btn-ghost{flex:1;}
 .burger{width:38px;height:38px;border-radius:11px;background:var(--card);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:all .15s;}
 .burger span{display:block;width:16px;height:1.8px;border-radius:2px;background:var(--text-2);transition:all .2s;}
 .burger:active{transform:scale(0.92);border-color:var(--gold);}
