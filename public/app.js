@@ -343,6 +343,9 @@ async function loadSummary() {
   $('mLucroMes').classList.toggle('neg', m.profit < 0);
   $('mFatMes').textContent = fmtBRLshort(m.revenue);
   $('mVendasMes').textContent = m.salesCount;
+  $('mInvMes').textContent = fmtBRLshort(m.cost);
+  $('mInvMesSub').innerHTML = m.spend > 0 ? `${fmtBRL(m.spend)} investido<br>+ ${fmtBRL(m.tax)} de imposto` : '';
+  $('mRoiMes').textContent = m.roi != null ? String(m.roi).replace('.', ',') + 'x' : '—';
 
   // meteoros mostram valores reais (ticket médio ± variação)
   if (m.salesCount > 0) {

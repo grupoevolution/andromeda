@@ -157,6 +157,10 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .mcard-value.gold{color:var(--gold);}
 .mcard-value.green{color:var(--green);}
 .mcard-value.neg{color:var(--rose);}
+.month-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 12px;}
+.month-grid > div{min-width:0;}
+.msub{font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.5;}
+.mcard-value.rose{color:var(--rose);}
 .mcard-row{display:flex;align-items:center;gap:13px;}
 .mcard-row > div:not(.vr){flex:1;}
 .vr{width:1px;align-self:stretch;background:var(--border);}
