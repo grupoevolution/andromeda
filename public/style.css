@@ -162,9 +162,7 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .month-grid > div:not(:last-child){border-right:1px solid var(--border);padding-right:8px;}
 .month-grid .mcard-label{font-size:10px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .month-grid .mcard-value{font-size:14px;white-space:nowrap;}
-.msub{font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.5;}
-.month-sub{margin-top:10px;padding-top:9px;border-top:1px solid var(--border);}
-.month-sub:empty{display:none;}
+.msub{font-size:9px;color:var(--text-3);margin-top:3px;line-height:1.4;white-space:nowrap;}
 .mcard-value.rose{color:var(--rose);}
 .mcard-row{display:flex;align-items:center;gap:13px;}
 .mcard-row > div:not(.vr){flex:1;}

@@ -344,7 +344,7 @@ async function loadSummary() {
   $('mFatMes').textContent = fmtBRLshort(m.revenue);
   $('mVendasMes').textContent = m.salesCount;
   $('mInvMes').textContent = fmtBRLshort(m.cost);
-  $('mInvMesSub').textContent = m.spend > 0 ? `Investimento: ${fmtBRL(m.spend)} em anúncios + ${fmtBRL(m.tax)} de imposto (12,15%)` : '';
+  $('mInvMesSub').textContent = m.spend > 0 ? `+ ${fmtBRL(m.tax)}` : '';
   $('mRoiMes').textContent = m.roi != null ? String(m.roi).replace('.', ',') + 'x' : '—';
 
   // meteoros mostram valores reais (ticket médio ± variação)
