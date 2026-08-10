@@ -157,9 +157,14 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .mcard-value.gold{color:var(--gold);}
 .mcard-value.green{color:var(--green);}
 .mcard-value.neg{color:var(--rose);}
-.month-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 12px;}
-.month-grid > div{min-width:0;}
+.month-grid{display:flex;justify-content:space-between;gap:8px;}
+.month-grid > div{min-width:0;flex:1;}
+.month-grid > div:not(:last-child){border-right:1px solid var(--border);padding-right:8px;}
+.month-grid .mcard-label{font-size:10px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.month-grid .mcard-value{font-size:14px;white-space:nowrap;}
 .msub{font-size:10px;color:var(--text-3);margin-top:3px;line-height:1.5;}
+.month-sub{margin-top:10px;padding-top:9px;border-top:1px solid var(--border);}
+.month-sub:empty{display:none;}
 .mcard-value.rose{color:var(--rose);}
 .mcard-row{display:flex;align-items:center;gap:13px;}
 .mcard-row > div:not(.vr){flex:1;}
