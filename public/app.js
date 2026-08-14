@@ -282,7 +282,7 @@ document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click'
 
 /* ================= DASHBOARD ================= */
 let chartEv = null, chartHours = null;
-let evDays = 7, hDays = 1, compareOn = false;
+let evDays = 'mes', hDays = 1, compareOn = false;
 
 const tooltipStyle = {
   backgroundColor: '#171429', borderColor: 'rgba(245,183,102,0.4)', borderWidth: 1,
@@ -390,11 +390,13 @@ $('datePillBtn').addEventListener('click', () => {
 });
 
 async function loadEvolution() {
-  const to = brToday(), from = brToday(evDays - 1);
+  const to = brToday();
+  const from = evDays === 'mes' ? to.slice(0, 8) + '01' : brToday(evDays - 1);
+  const nDays = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
   const rows = await api(`/api/daily?from=${from}&to=${to}`);
   const map = Object.fromEntries(rows.map(r => [r.date, r]));
   const labels = [], curr = [];
-  for (let i = evDays - 1; i >= 0; i--) {
+  for (let i = nDays - 1; i >= 0; i--) {
     const d = brToday(i);
     labels.push(+d.slice(8, 10) + '/' + +d.slice(5, 7));
     curr.push(map[d] ? map[d].revenue : 0);
@@ -402,10 +404,11 @@ async function loadEvolution() {
 
   let prev = null;
   if (compareOn) {
-    const pRows = await api(`/api/daily?from=${brToday(evDays * 2 - 1)}&to=${brToday(evDays)}`);
+    // período anterior com o mesmo número de dias, logo antes
+    const pRows = await api(`/api/daily?from=${brToday(nDays * 2 - 1)}&to=${brToday(nDays)}`);
     const pMap = Object.fromEntries(pRows.map(r => [r.date, r]));
     prev = [];
-    for (let i = evDays * 2 - 1; i >= evDays; i--) {
+    for (let i = nDays * 2 - 1; i >= nDays; i--) {
       const d = brToday(i);
       prev.push(pMap[d] ? pMap[d].revenue : 0);
     }
@@ -490,7 +493,7 @@ $('evPeriods').addEventListener('click', e => {
   if (!e.target.dataset.days) return;
   [...$('evPeriods').children].forEach(p => p.classList.remove('active'));
   e.target.classList.add('active');
-  evDays = +e.target.dataset.days;
+  evDays = e.target.dataset.days === 'mes' ? 'mes' : +e.target.dataset.days;
   loadEvolution();
 });
 $('hPeriods').addEventListener('click', e => {
