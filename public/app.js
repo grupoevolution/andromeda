@@ -502,8 +502,35 @@ $('hPeriods').addEventListener('click', e => {
 });
 
 /* ================= GRÁFICO DE ROI (zonas verde/amarela/vermelha) ================= */
-let chartRoi = null, roiDays = 'mes';
+let chartRoi = null, roiDays = 'mes', roiBestIdx = -1;
 let roiLimits = { red: 1.5, green: 1.7 };
+
+// destaque do melhor dia: contorno dourado com brilho + estrela
+const roiBestPlugin = {
+  id: 'roiBest',
+  afterDatasetsDraw(chart) {
+    if (roiBestIdx < 0) return;
+    const el = chart.getDatasetMeta(0).data[roiBestIdx];
+    if (!el) return;
+    const { ctx } = chart;
+    const half = el.width / 2;
+    const top = Math.min(el.y, el.base), bottom = Math.max(el.y, el.base);
+    ctx.save();
+    ctx.shadowColor = 'rgba(245,183,102,0.9)';
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = '#FFD9A0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(el.x - half - 1.5, top - 1.5, el.width + 3, bottom - top + 3, 4);
+    ctx.stroke();
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#FFD9A0';
+    ctx.font = '700 12px "Space Grotesk", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('✦', el.x, top - 7);
+    ctx.restore();
+  }
+};
 
 async function loadRoiLimits() {
   try { roiLimits = await api('/api/roi-limits'); } catch (e) { /* usa o padrão */ }
@@ -593,14 +620,22 @@ async function loadRoi() {
   const floor = (roiLimits.red + roiLimits.green) / 2;
   const nums = vals.filter(v => v != null);
   const yMin = Math.max(0, Math.min(roiLimits.red - 0.4, ...(nums.length ? nums : [floor])) - 0.2);
-  const yMax = Math.max(roiLimits.green + 0.4, ...(nums.length ? nums : [floor])) + 0.3;
+  const yMax = Math.max(roiLimits.green + 0.4, ...(nums.length ? nums : [floor])) * 1.08 + 0.25;
 
   const ctx = $('chartRoi').getContext('2d');
   if (chartRoi) chartRoi.destroy();
   const tick = (yMax - yMin) * 0.012; // altura mínima visível
+
+  // melhor dia do período (só destaca se tiver mais de um dia com ROI)
+  roiBestIdx = -1;
+  const withRoi = vals.map((v, i) => [v, i]).filter(([v]) => v != null);
+  if (withRoi.length > 1) {
+    roiBestIdx = withRoi.reduce((a, b) => (b[0] > a[0] ? b : a))[1];
+  }
+
   chartRoi = new Chart(ctx, {
     type: 'bar',
-    plugins: [roiZonesPlugin],
+    plugins: [roiZonesPlugin, roiBestPlugin],
     data: { labels, datasets: [{
       // barra nasce na linha do piso; ROI colado no piso ganha altura mínima pra não sumir
       data: vals.map(v => {
@@ -617,7 +652,8 @@ async function loadRoi() {
       plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
         callbacks: { label: c => {
           const v = vals[c.dataIndex];
-          return v == null ? 'sem investimento registrado' : 'ROI: ' + String(v).replace('.', ',') + 'x';
+          if (v == null) return 'sem investimento registrado';
+          return 'ROI: ' + String(v).replace('.', ',') + 'x' + (c.dataIndex === roiBestIdx ? ' ✦ melhor dia' : '');
         }}
       }},
       scales: {
