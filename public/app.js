@@ -526,6 +526,20 @@ const roiZonesPlugin = {
     ctx.fillRect(a.left, yGreen, a.width, Math.max(0, yRed - yGreen));
     ctx.fillStyle = 'rgba(239,92,126,0.07)';
     ctx.fillRect(a.left, yRed, a.width, Math.max(0, a.bottom - yRed));
+
+    // abaixo de 1,0 = prejuízo: zona de perigo + linha vermelha contínua
+    const yOne = y.getPixelForValue(1);
+    if (yOne > a.top && yOne < a.bottom) {
+      ctx.fillStyle = 'rgba(239,92,126,0.13)';
+      ctx.fillRect(a.left, yOne, a.width, a.bottom - yOne);
+      ctx.strokeStyle = '#EF5C7E';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(a.left, yOne); ctx.lineTo(a.right, yOne); ctx.stroke();
+      ctx.fillStyle = '#EF5C7E';
+      ctx.font = '600 9px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('1,0 · abaixo é prejuízo', a.left + 4, yOne + 11);
+    }
     // linha central bem marcada
     ctx.strokeStyle = '#F5B766';
     ctx.lineWidth = 2;
