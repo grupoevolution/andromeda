@@ -505,32 +505,36 @@ $('hPeriods').addEventListener('click', e => {
 let chartRoi = null, roiDays = 'mes', roiBestIdx = -1;
 let roiLimits = { red: 1.5, green: 1.7 };
 
-// destaque do melhor dia: contorno dourado com brilho + estrela
-const roiBestPlugin = {
-  id: 'roiBest',
-  afterDatasetsDraw(chart) {
-    if (roiBestIdx < 0) return;
-    const el = chart.getDatasetMeta(0).data[roiBestIdx];
-    if (!el) return;
-    const { ctx } = chart;
-    const half = el.width / 2;
-    const top = Math.min(el.y, el.base), bottom = Math.max(el.y, el.base);
-    ctx.save();
-    ctx.shadowColor = 'rgba(245,183,102,0.9)';
-    ctx.shadowBlur = 12;
-    ctx.strokeStyle = '#FFD9A0';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(el.x - half - 1.5, top - 1.5, el.width + 3, bottom - top + 3, 4);
-    ctx.stroke();
-    ctx.shadowBlur = 10;
-    ctx.fillStyle = '#FFD9A0';
-    ctx.font = '700 12px "Space Grotesk", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('✦', el.x, top - 7);
-    ctx.restore();
+// destaque do melhor dia: degradê subindo pela barra + estrela girando (camada CSS, zero custo de canvas)
+function positionRoiBestFx(chart) {
+  const wrap = $('chartRoi').parentElement;
+  let fx = wrap.querySelector('.roi-best-fx');
+  let star = wrap.querySelector('.roi-best-star');
+  if (roiBestIdx < 0) { if (fx) fx.remove(); if (star) star.remove(); return; }
+  if (!fx) {
+    fx = document.createElement('div');
+    fx.className = 'roi-best-fx';
+    fx.innerHTML = '<i></i>';
+    wrap.appendChild(fx);
+    star = document.createElement('div');
+    star.className = 'roi-best-star';
+    star.textContent = '✦';
+    wrap.appendChild(star);
   }
-};
+  const el = chart.getDatasetMeta(0).data[roiBestIdx];
+  if (!el) return;
+  const x = chart.scales.x.getPixelForValue(roiBestIdx);
+  const [a, b] = chart.data.datasets[0].data[roiBestIdx];
+  const y1 = chart.scales.y.getPixelForValue(Math.max(a, b));
+  const y2 = chart.scales.y.getPixelForValue(Math.min(a, b));
+  const w = el.width;
+  fx.style.left = (x - w / 2) + 'px';
+  fx.style.top = y1 + 'px';
+  fx.style.width = w + 'px';
+  fx.style.height = Math.max(4, y2 - y1) + 'px';
+  star.style.left = x + 'px';
+  star.style.top = (y1 - 17) + 'px';
+}
 
 async function loadRoiLimits() {
   try { roiLimits = await api('/api/roi-limits'); } catch (e) { /* usa o padrão */ }
@@ -635,7 +639,7 @@ async function loadRoi() {
 
   chartRoi = new Chart(ctx, {
     type: 'bar',
-    plugins: [roiZonesPlugin, roiBestPlugin],
+    plugins: [roiZonesPlugin],
     data: { labels, datasets: [{
       // barra nasce na linha do piso; ROI colado no piso ganha altura mínima pra não sumir
       data: vals.map(v => {
@@ -662,6 +666,8 @@ async function loadRoi() {
       }
     }
   });
+
+  positionRoiBestFx(chartRoi);
 }
 
 $('roiPeriods').addEventListener('click', e => {

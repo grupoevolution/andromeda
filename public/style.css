@@ -186,6 +186,12 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .pill.active{color:#170E0A;background:linear-gradient(100deg,var(--gold-2),var(--gold));border-color:transparent;box-shadow:0 4px 14px -4px rgba(245,183,102,0.5);}
 
 .chart-wrap{position:relative;height:190px;margin-bottom:6px;}
+/* destaque do melhor dia (gráfico de ROI) */
+.roi-best-fx{position:absolute;pointer-events:none;border-radius:3px;overflow:hidden;z-index:2;}
+.roi-best-fx i{position:absolute;inset:0;background:linear-gradient(0deg,rgba(255,255,255,0) 0%,rgba(255,240,214,0.75) 50%,rgba(255,255,255,0) 100%);background-size:100% 260%;animation:riseShine 2s linear infinite;}
+@keyframes riseShine{from{background-position:0 130%;}to{background-position:0 -130%;}}
+.roi-best-star{position:absolute;pointer-events:none;z-index:2;color:#FFD9A0;font-size:13px;line-height:1;text-shadow:0 0 9px rgba(245,183,102,0.9);transform-origin:center;animation:spinY 2.6s linear infinite;}
+@keyframes spinY{from{transform:translateX(-50%) rotateY(0deg);}to{transform:translateX(-50%) rotateY(360deg);}}
 .chart-wrap.short{height:170px;}
 .legend-row{display:flex;gap:16px;padding-top:12px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-2);flex-wrap:wrap;}
 .legend-row span{display:flex;align-items:center;gap:6px;}
