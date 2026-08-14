@@ -583,12 +583,13 @@ async function loadRoi() {
 
   const ctx = $('chartRoi').getContext('2d');
   if (chartRoi) chartRoi.destroy();
+  const tick = (yMax - yMin) * 0.012; // dia sem investimento: tracinho neutro na linha
   chartRoi = new Chart(ctx, {
     type: 'bar',
     plugins: [roiZonesPlugin],
     data: { labels, datasets: [{
-      data: vals.map(v => v == null ? null : [floor, v]), // barra nasce na linha do piso
-      backgroundColor: vals.map(v => v == null ? 'transparent' : roiColor(v)),
+      data: vals.map(v => v == null ? [floor - tick, floor + tick] : [floor, v]), // barra nasce na linha do piso
+      backgroundColor: vals.map(v => v == null ? 'rgba(201,187,255,0.35)' : roiColor(v)),
       borderRadius: 3, borderSkipped: false, barPercentage: 0.6
     }]},
     options: {
@@ -597,7 +598,7 @@ async function loadRoi() {
       plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
         callbacks: { label: c => {
           const v = vals[c.dataIndex];
-          return v == null ? 'sem investimento' : 'ROI: ' + String(v).replace('.', ',') + 'x';
+          return v == null ? 'sem investimento registrado' : 'ROI: ' + String(v).replace('.', ',') + 'x';
         }}
       }},
       scales: {
