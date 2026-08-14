@@ -219,6 +219,7 @@
 
       <div class="period-row" id="hPeriods">
         <div class="pill active" data-hdays="1">Hoje</div>
+        <div class="pill" data-hdays="ontem">Ontem</div>
         <div class="pill" data-hdays="7">7D</div>
         <div class="pill" data-hdays="30">30D</div>
       </div>
@@ -228,6 +229,37 @@
       <div class="peak-badge" id="peakBadge">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
         <span id="peakText">Sem vendas no período</span>
+      </div>
+    </div>
+
+    <div class="chart-card fade-up" style="--d:.35s">
+      <div class="chart-head">
+        <div>
+          <div class="chart-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+            ROI
+          </div>
+          <div class="chart-title-sub" id="roiFloorText">zonas: —</div>
+        </div>
+        <div style="text-align:right">
+          <div class="chart-title-sub">ROI do período</div>
+          <div class="mcard-value" id="roiPeriodVal" style="font-size:22px">—</div>
+        </div>
+      </div>
+
+      <div class="period-row" id="roiPeriods">
+        <div class="pill active" data-rdays="mes">Mês</div>
+        <div class="pill" data-rdays="7">7D</div>
+        <div class="pill" data-rdays="15">15D</div>
+        <div class="pill" data-rdays="30">30D</div>
+      </div>
+
+      <div class="chart-wrap"><canvas id="chartRoi"></canvas></div>
+
+      <div class="legend-row">
+        <span><span class="dot" style="background:var(--green)"></span>Bom</span>
+        <span><span class="dot" style="background:var(--gold)"></span>Atenção</span>
+        <span><span class="dot" style="background:#EF5C7E"></span>Ruim</span>
       </div>
     </div>
 
@@ -321,11 +353,14 @@
     <button class="back" data-back>← Voltar ao painel</button>
 
     <div class="chart-card fade-up">
-      <div class="chart-head"><div><div class="chart-title">Notificações</div>
-      <div class="chart-title-sub">Receba um aviso a cada venda aprovada</div></div></div>
-      <button class="btn-gold w100" id="btnEnablePush">Ativar notificações</button>
-      <button class="btn-ghost w100" id="btnTestPush" style="margin-top:10px">Enviar teste</button>
-      <p class="hint" id="pushStatus"></p>
+      <div class="chart-head"><div><div class="chart-title">Zonas do ROI</div>
+      <div class="chart-title-sub">Define as faixas do gráfico: vermelho abaixo do 1º limite, verde acima do 2º, amarelo no meio</div></div></div>
+      <label class="field-label">Limite vermelho (abaixo disso é ruim)</label>
+      <input type="text" inputmode="decimal" id="roiRed" class="input w100" placeholder="Ex.: 1,5">
+      <label class="field-label">Limite verde (acima disso é bom)</label>
+      <input type="text" inputmode="decimal" id="roiGreen" class="input w100" placeholder="Ex.: 1,7">
+      <button class="btn-gold w100" id="btnSaveRoi">Salvar zonas</button>
+      <p class="hint" id="roiSaveResult"></p>
     </div>
 
     <div class="chart-card fade-up" style="--d:.08s">

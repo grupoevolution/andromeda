@@ -1,4 +1,4 @@
-const CACHE = 'andromeda-v11';
+const CACHE = 'andromeda-v12';
 const ASSETS = ['/', '/style.css', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -21,23 +21,4 @@ self.addEventListener('fetch', e => {
       return res;
     }).catch(() => caches.match(e.request))
   );
-});
-
-self.addEventListener('push', e => {
-  let data = { title: 'Andrômeda', body: 'Nova notificação' };
-  try { data = e.data.json(); } catch (_) {}
-  e.waitUntil(self.registration.showNotification(data.title, {
-    body: data.body,
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
-    vibrate: [100, 50, 100]
-  }));
-});
-
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  e.waitUntil(clients.matchAll({ type: 'window' }).then(list => {
-    if (list.length) return list[0].focus();
-    return clients.openWindow('/');
-  }));
 });

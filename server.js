@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
-const webpush = require('web-push');
 
 const VERSION = require('./package.json').version;
 const PORT = process.env.PORT || 3000;
@@ -36,10 +35,6 @@ CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
   created_at TEXT DEFAULT (datetime('now'))
 );
-CREATE TABLE IF NOT EXISTS push_subs (
-  endpoint TEXT PRIMARY KEY,
-  sub TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
@@ -57,7 +52,7 @@ CREATE TABLE IF NOT EXISTS webhook_log (
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
 `);
 
-// ---- VAPID keys (geradas uma vez e guardadas no banco) ----
+// ---- configurações persistidas ----
 function getSetting(k) {
   const r = db.prepare('SELECT value FROM settings WHERE key=?').get(k);
   return r ? r.value : null;
@@ -65,17 +60,6 @@ function getSetting(k) {
 function setSetting(k, v) {
   db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(k, v);
 }
-let vapidPublic = getSetting('vapid_public');
-let vapidPrivate = getSetting('vapid_private');
-if (!vapidPublic || !vapidPrivate) {
-  const keys = webpush.generateVAPIDKeys();
-  vapidPublic = keys.publicKey;
-  vapidPrivate = keys.privateKey;
-  setSetting('vapid_public', vapidPublic);
-  setSetting('vapid_private', vapidPrivate);
-}
-webpush.setVapidDetails('mailto:admin@andromeda.app', vapidPublic, vapidPrivate);
-
 const app = express();
 app.use(express.json({ limit: '25mb' }));
 app.use(express.text({ type: 'text/csv', limit: '10mb' }));
@@ -193,7 +177,6 @@ app.post('/webhook/kirvano', (req, res) => {
       throw e;
     }
     logWebhook(event, s, 'venda registrada', body);
-    sendPush('Venda aprovada 💰', `+ R$ ${s.amount.toFixed(2).replace('.', ',')}${s.product ? ' — ' + s.product : ''}`);
     return res.json({ ok: true });
   }
 
@@ -204,7 +187,6 @@ app.post('/webhook/kirvano', (req, res) => {
       const row = db.prepare('SELECT id FROM sales WHERE amount=? ORDER BY id DESC LIMIT 1').get(s.amount);
       if (row) removed = db.prepare('DELETE FROM sales WHERE id=?').run(row.id).changes;
     }
-    if (removed) sendPush('Reembolso ↩️', `- R$ ${(s.amount || 0).toFixed(2).replace('.', ',')} removido do painel`);
     logWebhook(event, s, removed ? 'reembolso removido' : 'reembolso: venda não encontrada', body);
     return res.json({ ok: true, removed });
   }
@@ -233,27 +215,22 @@ app.post('/api/repair-dates', auth, (req, res) => {
   res.json({ ok: true, fixed, total: rows.length });
 });
 
-// ---- push ----
-function sendPush(title, body) {
-  const subs = db.prepare('SELECT endpoint, sub FROM push_subs').all();
-  for (const row of subs) {
-    webpush.sendNotification(JSON.parse(row.sub), JSON.stringify({ title, body }))
-      .catch(err => {
-        if (err.statusCode === 404 || err.statusCode === 410) {
-          db.prepare('DELETE FROM push_subs WHERE endpoint=?').run(row.endpoint);
-        }
-      });
-  }
-}
-app.get('/api/push/key', auth, (req, res) => res.json({ key: vapidPublic }));
-app.post('/api/push/subscribe', auth, (req, res) => {
-  const sub = req.body;
-  if (!sub || !sub.endpoint) return res.status(400).json({ error: 'subscription inválida' });
-  db.prepare('INSERT INTO push_subs(endpoint, sub) VALUES(?,?) ON CONFLICT(endpoint) DO UPDATE SET sub=excluded.sub')
-    .run(sub.endpoint, JSON.stringify(sub));
-  res.json({ ok: true });
+// ---- limites do gráfico de ROI ----
+app.get('/api/roi-limits', auth, (req, res) => {
+  res.json({
+    red: parseFloat(getSetting('roi_red') || '1.5'),
+    green: parseFloat(getSetting('roi_green') || '1.7')
+  });
 });
-app.post('/api/push/test', auth, (req, res) => { sendPush('Andrômeda 🔥', 'Notificações funcionando!'); res.json({ ok: true }); });
+app.put('/api/roi-limits', auth, (req, res) => {
+  const red = parseAmount(req.body.red), green = parseAmount(req.body.green);
+  if (red == null || green == null || red <= 0 || green <= red) {
+    return res.status(400).json({ error: 'Limites inválidos: o verde precisa ser maior que o vermelho.' });
+  }
+  setSetting('roi_red', String(red));
+  setSetting('roi_green', String(green));
+  res.json({ ok: true, red, green });
+});
 
 // ---- gasto de anúncio ----
 app.get('/api/spend', auth, (req, res) => {

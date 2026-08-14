@@ -1,6 +1,6 @@
 {
   "name": "andromeda",
-  "version": "5.7.0",
+  "version": "5.8.0",
   "description": "Painel de vendas e lucro — tráfego direto",
   "main": "server.js",
   "scripts": {
@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",
-    "express": "^4.21.2",
-    "web-push": "^3.6.7"
+    "express": "^4.21.2"
   }
 }

@@ -270,7 +270,11 @@ function goto(page) {
   window.scrollTo({ top: 0 });
   closeMenu();
   if (page === 'anuncios') { loadSpendList(); loadSales(true); }
-  if (page === 'config') { loadWebhookLog(); loadVersion(); }
+  if (page === 'config') {
+    loadWebhookLog(); loadVersion();
+    $('roiRed').value = String(roiLimits.red).replace('.', ',');
+    $('roiGreen').value = String(roiLimits.green).replace('.', ',');
+  }
   if (page === 'painel') refreshAll();
 }
 document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => goto(b.dataset.goto)));
@@ -451,7 +455,9 @@ $('compareToggle').addEventListener('click', () => {
 
 async function loadHours() {
   const base = viewDate || brToday();
-  const to = base, from = dateOffsetStr(base, hDays - 1);
+  let from, to;
+  if (hDays === 'ontem') { from = to = dateOffsetStr(base, 1); }
+  else { to = base; from = dateOffsetStr(base, hDays - 1); }
   const rows = await api(`/api/hours?from=${from}&to=${to}`);
   const labels = rows.map(r => r.hour + 'h');
   const data = rows.map(r => r.sales);
@@ -491,8 +497,123 @@ $('hPeriods').addEventListener('click', e => {
   if (!e.target.dataset.hdays) return;
   [...$('hPeriods').children].forEach(p => p.classList.remove('active'));
   e.target.classList.add('active');
-  hDays = +e.target.dataset.hdays;
+  hDays = e.target.dataset.hdays === 'ontem' ? 'ontem' : +e.target.dataset.hdays;
   loadHours();
+});
+
+/* ================= GRÁFICO DE ROI (zonas verde/amarela/vermelha) ================= */
+let chartRoi = null, roiDays = 'mes';
+let roiLimits = { red: 1.5, green: 1.7 };
+
+async function loadRoiLimits() {
+  try { roiLimits = await api('/api/roi-limits'); } catch (e) { /* usa o padrão */ }
+  $('roiFloorText').textContent = `zonas: vermelho < ${String(roiLimits.red).replace('.', ',')} · verde > ${String(roiLimits.green).replace('.', ',')}`;
+}
+
+const roiZonesPlugin = {
+  id: 'roiZones',
+  beforeDraw(chart) {
+    const { ctx, chartArea: a, scales: { y } } = chart;
+    if (!a) return;
+    const yGreen = y.getPixelForValue(roiLimits.green);
+    const yRed = y.getPixelForValue(roiLimits.red);
+    const floor = (roiLimits.red + roiLimits.green) / 2;
+    const yFloor = y.getPixelForValue(floor);
+    ctx.save();
+    ctx.fillStyle = 'rgba(63,206,147,0.06)';
+    ctx.fillRect(a.left, a.top, a.width, Math.max(0, yGreen - a.top));
+    ctx.fillStyle = 'rgba(245,183,102,0.07)';
+    ctx.fillRect(a.left, yGreen, a.width, Math.max(0, yRed - yGreen));
+    ctx.fillStyle = 'rgba(239,92,126,0.07)';
+    ctx.fillRect(a.left, yRed, a.width, Math.max(0, a.bottom - yRed));
+    // linha central bem marcada
+    ctx.strokeStyle = '#F5B766';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(a.left, yFloor); ctx.lineTo(a.right, yFloor); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#F5B766';
+    ctx.font = '700 10.5px "Space Grotesk", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(floor.toFixed(2)).replace('.', ',').replace(/,?0+$/, m => m.includes(',') ? '' : m), a.right - 2, yFloor - 5);
+    ctx.restore();
+  }
+};
+
+function roiColor(v) {
+  if (v < roiLimits.red) return '#EF5C7E';
+  if (v > roiLimits.green) return '#3FCE93';
+  return '#F5B766';
+}
+
+async function loadRoi() {
+  const base = viewDate || brToday();
+  let from;
+  if (roiDays === 'mes') from = base.slice(0, 8) + '01';
+  else from = dateOffsetStr(base, roiDays - 1);
+  const rows = await api(`/api/daily?from=${from}&to=${base}`);
+  const map = Object.fromEntries(rows.map(r => [r.date, r]));
+
+  const labels = [], vals = [];
+  let totalRev = 0, totalCost = 0;
+  const nDays = Math.round((new Date(base) - new Date(from)) / 86400000) + 1;
+  for (let i = nDays - 1; i >= 0; i--) {
+    const d = dateOffsetStr(base, i);
+    labels.push(+d.slice(8, 10) + '/' + +d.slice(5, 7));
+    const r = map[d];
+    if (r && r.cost > 0) {
+      vals.push(+(r.revenue / r.cost).toFixed(2));
+      totalRev += r.revenue; totalCost += r.cost;
+    } else {
+      vals.push(null); // dia sem investimento não tem ROI
+      if (r) totalRev += r.revenue;
+    }
+  }
+
+  // ROI geral do período
+  const periodRoi = totalCost > 0 ? +(totalRev / totalCost).toFixed(2) : null;
+  const pv = $('roiPeriodVal');
+  pv.textContent = periodRoi != null ? String(periodRoi).replace('.', ',') + 'x' : '—';
+  pv.style.color = periodRoi == null ? 'var(--text-3)' : roiColor(periodRoi);
+
+  const floor = (roiLimits.red + roiLimits.green) / 2;
+  const nums = vals.filter(v => v != null);
+  const yMin = Math.max(0, Math.min(roiLimits.red - 0.4, ...(nums.length ? nums : [floor])) - 0.2);
+  const yMax = Math.max(roiLimits.green + 0.4, ...(nums.length ? nums : [floor])) + 0.3;
+
+  const ctx = $('chartRoi').getContext('2d');
+  if (chartRoi) chartRoi.destroy();
+  chartRoi = new Chart(ctx, {
+    type: 'bar',
+    plugins: [roiZonesPlugin],
+    data: { labels, datasets: [{
+      data: vals.map(v => v == null ? null : [floor, v]), // barra nasce na linha do piso
+      backgroundColor: vals.map(v => v == null ? 'transparent' : roiColor(v)),
+      borderRadius: 3, borderSkipped: false, barPercentage: 0.6
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 800, easing: 'easeOutCubic' },
+      plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
+        callbacks: { label: c => {
+          const v = vals[c.dataIndex];
+          return v == null ? 'sem investimento' : 'ROI: ' + String(v).replace('.', ',') + 'x';
+        }}
+      }},
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 9, family: 'Inter' }, maxTicksLimit: 10, maxRotation: 0 } },
+        y: { display: false, min: yMin, max: yMax }
+      }
+    }
+  });
+}
+
+$('roiPeriods').addEventListener('click', e => {
+  if (!e.target.dataset.rdays) return;
+  [...$('roiPeriods').children].forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  roiDays = e.target.dataset.rdays === 'mes' ? 'mes' : +e.target.dataset.rdays;
+  loadRoi();
 });
 
 /* ================= GASTO RÁPIDO ================= */
@@ -656,36 +777,22 @@ $('btnCompare').addEventListener('click', async () => {
   </table>`;
 });
 
-/* ================= NOTIFICAÇÕES ================= */
-$('btnEnablePush').addEventListener('click', async () => {
+/* ================= CONFIG ================= */
+$('btnSaveRoi').addEventListener('click', async () => {
+  const red = parseVal($('roiRed').value), green = parseVal($('roiGreen').value);
+  if (red == null || green == null) return toast('Preencha os dois limites', 'err');
   try {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      return $('pushStatus').textContent = 'Este navegador não suporta notificações push. No iPhone, adicione o app à tela de início primeiro.';
-    }
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return $('pushStatus').textContent = 'Permissão negada pelo navegador.';
-    const reg = await navigator.serviceWorker.ready;
-    const { key } = await api('/api/push/key');
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(key) });
-    await api('/api/push/subscribe', { method: 'POST', body: JSON.stringify(sub) });
-    $('pushStatus').textContent = '✓ Notificações ativadas neste aparelho.';
-    toast('Notificações ativadas ✓');
+    const r = await api('/api/roi-limits', { method: 'PUT', body: JSON.stringify({ red, green }) });
+    roiLimits = { red: r.red, green: r.green };
+    $('roiSaveResult').textContent = `✓ Vermelho abaixo de ${String(r.red).replace('.', ',')} · verde acima de ${String(r.green).replace('.', ',')}.`;
+    toast('Zonas salvas ✓');
+    loadRoiLimits(); loadRoi();
   } catch (e) {
-    $('pushStatus').textContent = '✗ ' + e.message;
+    $('roiSaveResult').textContent = '✗ ' + e.message;
+    toast('Erro ao salvar', 'err');
   }
 });
-$('btnTestPush').addEventListener('click', async () => {
-  await api('/api/push/test', { method: 'POST' });
-  toast('Teste enviado');
-});
-function urlB64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(base64);
-  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
-}
 
-/* ================= CONFIG ================= */
 async function loadWebhookLog() {
   try {
     const rows = await api('/api/webhook-log');
@@ -742,6 +849,7 @@ function refreshAll() {
   loadSummary().catch(() => {});
   loadEvolution().catch(() => {});
   loadHours().catch(() => {});
+  loadRoi().catch(() => {});
 }
 
 /* botão de atualizar manual (útil no app instalado, sem puxar-pra-atualizar) */
@@ -764,6 +872,7 @@ async function showApp() {
   $('loginScreen').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('webhookUrl').textContent = location.origin + '/webhook/kirvano';
+  await loadRoiLimits();
   refreshAll();
 }
 
