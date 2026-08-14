@@ -583,12 +583,17 @@ async function loadRoi() {
 
   const ctx = $('chartRoi').getContext('2d');
   if (chartRoi) chartRoi.destroy();
-  const tick = (yMax - yMin) * 0.012; // dia sem investimento: tracinho neutro na linha
+  const tick = (yMax - yMin) * 0.012; // altura mínima visível
   chartRoi = new Chart(ctx, {
     type: 'bar',
     plugins: [roiZonesPlugin],
     data: { labels, datasets: [{
-      data: vals.map(v => v == null ? [floor - tick, floor + tick] : [floor, v]), // barra nasce na linha do piso
+      // barra nasce na linha do piso; ROI colado no piso ganha altura mínima pra não sumir
+      data: vals.map(v => {
+        if (v == null) return [floor - tick, floor + tick];
+        if (Math.abs(v - floor) < tick * 1.6) return [floor - tick, floor + tick];
+        return [floor, v];
+      }),
       backgroundColor: vals.map(v => v == null ? 'rgba(201,187,255,0.35)' : roiColor(v)),
       borderRadius: 3, borderSkipped: false, barPercentage: 0.6
     }]},
