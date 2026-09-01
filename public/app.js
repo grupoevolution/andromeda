@@ -270,6 +270,7 @@ function goto(page) {
   window.scrollTo({ top: 0 });
   closeMenu();
   if (page === 'anuncios') { loadSpendList(); loadSales(true); }
+  if (page === 'mensal') loadMensal();
   if (page === 'config') {
     loadWebhookLog(); loadVersion();
     $('roiRed').value = String(roiLimits.red).replace('.', ',');
@@ -319,6 +320,14 @@ async function loadSummary() {
   $('heroVendas').textContent = t.salesCount + ' venda' + (t.salesCount === 1 ? '' : 's');
   $('hInvestido').textContent = fmtBRLshort(t.cost);
   $('hRoi').textContent = t.roi != null ? String(t.roi).replace('.', ',') + 'x' : '—';
+
+  // conversão de pix do dia visto
+  const pc = $('pixConv');
+  if (s.pix && s.pix.generated > 0) {
+    const pct = Math.round((s.pix.paid / s.pix.generated) * 100);
+    pc.innerHTML = `⚡ Pix: <b>${s.pix.generated}</b> gerados · <b>${s.pix.paid}</b> pagos · <b>${pct}%</b> de conversão`;
+    pc.classList.remove('hidden');
+  } else pc.classList.add('hidden');
 
   $('spendLabel').textContent = viewing ? 'Gasto em anúncios ' + fmtDate(t.date) : 'Gasto em anúncios hoje';
   $('spendToday').textContent = fmtBRL(t.spend);
@@ -842,7 +851,207 @@ $('btnCompare').addEventListener('click', async () => {
   </table>`;
 });
 
+/* ================= SONS ================= */
+let customSound = null; // data:audio/... vindo do servidor
+let audioCtx = null;
+function actx() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+function synthTone(t0, freq, dur, type, vol, partials) {
+  const c = actx();
+  (partials || [[1, 1]]).forEach(([mult, g0]) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq * mult;
+    g.gain.setValueAtTime(0.0001, c.currentTime + t0);
+    g.gain.exponentialRampToValueAtTime(vol * g0, c.currentTime + t0 + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + t0 + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(c.currentTime + t0); o.stop(c.currentTime + t0 + dur + 0.1);
+  });
+}
+function playApproved() {
+  if (customSound) {
+    try { new Audio(customSound).play().catch(() => {}); return; } catch (e) { /* cai no padrão */ }
+  }
+  // cha-ching padrão (sino duplo)
+  const bell = [[1, 1], [2.76, 0.55], [5.4, 0.28], [8.9, 0.12]];
+  synthTone(0, 1568, 0.55, 'sine', 0.2, bell);
+  synthTone(0.13, 2093, 0.9, 'sine', 0.24, bell);
+}
+function playRefund() {
+  synthTone(0, 660, 0.16, 'sine', 0.16);
+  synthTone(0.18, 494, 0.28, 'sine', 0.16);
+}
+async function loadCustomSound() {
+  try { customSound = (await api('/api/sound')).sound; } catch (e) { /* sem som custom */ }
+}
+// o service worker avisa quando chega notificação com o app aberto
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', ev => {
+    const d = ev.data || {};
+    if (d.type !== 'notification') return;
+    if (d.kind === 'approved') playApproved();
+    if (d.kind === 'refund') playRefund();
+    refreshAll();
+  });
+}
+
+/* ================= RESUMO MENSAL ================= */
+const mesesFull = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+let chartCurMonth = null;
+const monthCharts = {};
+
+function monthLabel(ym) {
+  const [y, m] = ym.split('-');
+  return `${mesesFull[+m - 1]} ${y}`;
+}
+function roiBadgeClass(roi) {
+  if (roi == null) return 'n';
+  if (roi < roiLimits.red) return 'r';
+  if (roi > roiLimits.green) return 'g';
+  return 'y';
+}
+function lastDayOfMonth(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return `${ym}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
+}
+
+async function drawMonthChart(canvasId, ym, existing) {
+  const today = brToday();
+  const from = ym + '-01';
+  const to = ym === today.slice(0, 7) ? today : lastDayOfMonth(ym);
+  const rows = await api(`/api/daily?from=${from}&to=${to}`);
+  const map = Object.fromEntries(rows.map(r => [r.date, r]));
+  const labels = [], rev = [], profit = [];
+  const nDays = +to.slice(8, 10);
+  for (let d = 1; d <= nDays; d++) {
+    const iso = ym + '-' + String(d).padStart(2, '0');
+    labels.push(String(d));
+    rev.push(map[iso] ? map[iso].revenue : 0);
+    profit.push(map[iso] ? map[iso].profit : 0);
+  }
+  const ctx = $(canvasId).getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 180);
+  grad.addColorStop(0, 'rgba(245,183,102,0.3)');
+  grad.addColorStop(1, 'rgba(245,183,102,0)');
+  if (existing) existing.destroy();
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: 'Faturamento', data: rev, borderColor: '#F5B766', backgroundColor: grad, borderWidth: 2.2, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#F5B766', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2 },
+      { label: 'Lucro', data: profit, borderColor: '#3FCE93', borderWidth: 1.8, borderDash: [5, 4], fill: false, tension: 0.4, pointRadius: 0, pointHoverRadius: 4, pointHoverBackgroundColor: '#3FCE93', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2 }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      animation: { duration: 700, easing: 'easeOutCubic' },
+      plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
+        callbacks: {
+          title: items => 'Dia ' + items[0].label,
+          label: c => c.dataset.label + ': ' + fmtBRL(c.parsed.y)
+        }
+      }},
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 9.5, family: 'Inter' }, maxTicksLimit: 10, maxRotation: 0 } }, y: { display: false } }
+    }
+  });
+}
+
+async function loadMensal() {
+  const months = await api('/api/months');
+  const curYm = brToday().slice(0, 7);
+  const cur = months.find(m => m.month === curYm) || { month: curYm, revenue: 0, sales: 0, spend: 0, tax: 0, cost: 0, profit: 0, roi: null };
+
+  $('curMonthTitle').textContent = monthLabel(curYm);
+  const badge = $('curMonthRoi');
+  badge.textContent = cur.roi != null ? String(cur.roi).replace('.', ',') + 'x' : '—';
+  badge.className = 'roi-badge ' + roiBadgeClass(cur.roi);
+  $('curMonthStats').innerHTML = `
+    <div><div class="mcard-label">Faturado</div><div class="mcard-value">${fmtBRLshort(cur.revenue)}</div></div>
+    <div><div class="mcard-label">Investido</div><div class="mcard-value rose">${fmtBRLshort(cur.cost)}</div><div class="msub">+ ${fmtBRL(cur.tax)}</div></div>
+    <div><div class="mcard-label">Lucro</div><div class="mcard-value ${cur.profit < 0 ? 'neg' : 'green'}">${fmtBRLshort(cur.profit)}</div></div>
+    <div><div class="mcard-label">Vendas</div><div class="mcard-value">${cur.sales}</div></div>`;
+  chartCurMonth = await drawMonthChart('chartCurMonth', curYm, chartCurMonth);
+
+  const others = months.filter(m => m.month !== curYm);
+  const el = $('monthsList');
+  if (!others.length) { el.innerHTML = '<div class="empty">Os meses anteriores vão aparecer aqui</div>'; return; }
+  el.innerHTML = others.map(m => `
+    <div class="month-row" data-ym="${m.month}">
+      <div class="month-row-head">
+        <div>
+          <div class="month-name">${monthLabel(m.month)}</div>
+          <div class="month-meta">Fat <b>${fmtBRLshort(m.revenue)}</b> · Inv <b class="inv">${fmtBRLshort(m.cost)}</b> · Lucro <b class="lucro">${fmtBRLshort(m.profit)}</b> · ${m.sales} vendas</div>
+        </div>
+        <span class="roi-badge ${roiBadgeClass(m.roi)}">${m.roi != null ? String(m.roi).replace('.', ',') + 'x' : '—'}</span>
+      </div>
+      <div class="month-expand">
+        <div class="chart-wrap"><canvas id="chart-m-${m.month}"></canvas></div>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('.month-row').forEach(row => {
+    row.querySelector('.month-row-head').addEventListener('click', async () => {
+      const ym = row.dataset.ym;
+      const wasOpen = row.classList.contains('open');
+      row.classList.toggle('open', !wasOpen);
+      if (!wasOpen && !monthCharts[ym]) {
+        monthCharts[ym] = await drawMonthChart('chart-m-' + ym, ym, null);
+      }
+    });
+  });
+}
+
 /* ================= CONFIG ================= */
+$('btnEnablePush').addEventListener('click', async () => {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return $('pushStatus').textContent = 'Este navegador não suporta notificações. No iPhone, adicione o app à tela de início e abra por lá.';
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return $('pushStatus').textContent = 'Permissão negada pelo celular.';
+    const reg = await navigator.serviceWorker.ready;
+    const { key } = await api('/api/push/key');
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(key) });
+    await api('/api/push/subscribe', { method: 'POST', body: JSON.stringify(sub) });
+    $('pushStatus').textContent = '✓ Notificações ativadas neste aparelho.';
+    toast('Notificações ativadas ✓');
+  } catch (e) {
+    $('pushStatus').textContent = '✗ ' + e.message;
+  }
+});
+$('btnTestPush').addEventListener('click', async () => {
+  await api('/api/push/test', { method: 'POST' });
+  toast('Teste enviado');
+});
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+$('btnPickSound').addEventListener('click', () => $('soundFile').click());
+$('soundFile').addEventListener('change', () => {
+  const f = $('soundFile').files[0];
+  if (!f) return;
+  if (f.size > 1000000) return toast('Arquivo muito grande (máx. 1MB)', 'err');
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      await api('/api/sound', { method: 'PUT', body: JSON.stringify({ sound: reader.result }) });
+      customSound = reader.result;
+      $('soundStatus').textContent = `✓ ${f.name} salvo — esse é o som da venda agora.`;
+      toast('Som salvo ✓');
+      playApproved();
+    } catch (e) { $('soundStatus').textContent = '✗ ' + e.message; }
+  };
+  reader.readAsDataURL(f);
+});
+$('btnPlaySound').addEventListener('click', playApproved);
+$('btnResetSound').addEventListener('click', async () => {
+  await api('/api/sound', { method: 'DELETE' });
+  customSound = null;
+  $('soundStatus').textContent = 'Som padrão restaurado.';
+  toast('Som padrão ✓');
+});
+
 $('btnSaveRoi').addEventListener('click', async () => {
   const red = parseVal($('roiRed').value), green = parseVal($('roiGreen').value);
   if (red == null || green == null) return toast('Preencha os dois limites', 'err');
@@ -938,6 +1147,7 @@ async function showApp() {
   $('app').classList.remove('hidden');
   $('webhookUrl').textContent = location.origin + '/webhook/kirvano';
   await loadRoiLimits();
+  loadCustomSound();
   refreshAll();
 }
 

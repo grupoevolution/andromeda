@@ -110,6 +110,7 @@
           </div>
           <div class="hero-sub-n" id="heroVendas">0 vendas</div>
         </div>
+        <div class="pix-conv hidden" id="pixConv"></div>
 
         <div class="hero-foot">
           <div class="hero-foot-item"><div class="k">Investido</div><div class="v" id="hInvestido">—</div></div>
@@ -293,6 +294,41 @@
     <div class="foot-space"></div>
   </main>
 
+  <!-- ========= RESUMO MENSAL ========= -->
+  <main id="page-mensal" class="page hidden">
+    <button class="back" data-back>← Voltar ao painel</button>
+
+    <div class="chart-card fade-up" id="currentMonthCard">
+      <div class="chart-head">
+        <div>
+          <div class="chart-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <span id="curMonthTitle">—</span>
+          </div>
+          <div class="chart-title-sub">mês atual, em andamento</div>
+        </div>
+        <span id="curMonthRoi" class="roi-badge">—</span>
+      </div>
+      <div class="month-grid" id="curMonthStats"></div>
+      <div class="chart-wrap" style="margin-top:14px"><canvas id="chartCurMonth"></canvas></div>
+      <div class="legend-row">
+        <span><span class="dot" style="background:var(--gold)"></span>Faturamento</span>
+        <span><span class="dot" style="background:var(--green)"></span>Lucro</span>
+      </div>
+    </div>
+
+    <div class="chart-card fade-up" style="--d:.08s">
+      <div class="chart-head">
+        <div>
+          <div class="chart-title">Meses anteriores</div>
+          <div class="chart-title-sub">Toque num mês pra abrir o gráfico diário dele</div>
+        </div>
+      </div>
+      <div id="monthsList" class="list"></div>
+    </div>
+    <div class="foot-space"></div>
+  </main>
+
   <!-- ========= ANÚNCIOS ========= -->
   <main id="page-anuncios" class="page hidden">
     <button class="back" data-back>← Voltar ao painel</button>
@@ -354,6 +390,26 @@
     <button class="back" data-back>← Voltar ao painel</button>
 
     <div class="chart-card fade-up">
+      <div class="chart-head"><div><div class="chart-title">Notificações</div>
+      <div class="chart-title-sub">PIX gerado, venda aprovada ✅ e reembolso ❌ direto no celular</div></div></div>
+      <button class="btn-gold w100" id="btnEnablePush">Ativar notificações neste aparelho</button>
+      <button class="btn-ghost w100" id="btnTestPush" style="margin-top:10px">Enviar teste</button>
+      <p class="hint" id="pushStatus"></p>
+    </div>
+
+    <div class="chart-card fade-up" style="--d:.04s">
+      <div class="chart-head"><div><div class="chart-title">Som da venda aprovada</div>
+      <div class="chart-title-sub">Toca com o app aberto. Envie seu MP3 preferido (em segundo plano o celular usa o som padrão)</div></div></div>
+      <input type="file" id="soundFile" accept="audio/*" class="hidden">
+      <button class="btn-ghost w100" id="btnPickSound">🎵 Enviar meu MP3</button>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn-ghost" id="btnPlaySound" style="flex:1">▶ Ouvir atual</button>
+        <button class="btn-ghost danger" id="btnResetSound" style="flex:1">Voltar ao padrão</button>
+      </div>
+      <p class="hint" id="soundStatus"></p>
+    </div>
+
+    <div class="chart-card fade-up" style="--d:.06s">
       <div class="chart-head"><div><div class="chart-title">Zonas do ROI</div>
       <div class="chart-title-sub">Define as faixas do gráfico: vermelho abaixo do 1º limite, verde acima do 2º, amarelo no meio</div></div></div>
       <label class="field-label">Limite vermelho (abaixo disso é ruim)</label>
@@ -410,6 +466,10 @@
     <button class="drawer-item" data-goto="painel">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>
       Painel
+    </button>
+    <button class="drawer-item" data-goto="mensal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18M8 15h2m2 0h2"/></svg>
+      Resumo mensal
     </button>
     <button class="drawer-item" data-goto="anuncios">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-7-7 18-2.5-7.5z"/></svg>

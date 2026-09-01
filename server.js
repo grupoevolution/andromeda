@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const Database = require('better-sqlite3');
+const webpush = require('web-push');
 
 const VERSION = require('./package.json').version;
 const PORT = process.env.PORT || 3000;
@@ -49,8 +50,23 @@ CREATE TABLE IF NOT EXISTS webhook_log (
   result TEXT,
   raw TEXT
 );
+CREATE TABLE IF NOT EXISTS push_subs (
+  endpoint TEXT PRIMARY KEY,
+  sub TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pix_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  external_id TEXT UNIQUE,
+  amount REAL,
+  date TEXT NOT NULL,
+  hour INTEGER,
+  paid INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
+CREATE INDEX IF NOT EXISTS idx_pix_date ON pix_events(date);
 `);
+try { db.exec('ALTER TABLE sales ADD COLUMN customer_key TEXT'); } catch (e) { /* já existe */ }
 
 // ---- configurações persistidas ----
 function getSetting(k) {
@@ -60,6 +76,30 @@ function getSetting(k) {
 function setSetting(k, v) {
   db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(k, v);
 }
+// ---- chaves de push (geradas uma vez e guardadas no banco) ----
+let vapidPublic = getSetting('vapid_public');
+let vapidPrivate = getSetting('vapid_private');
+if (!vapidPublic || !vapidPrivate) {
+  const keys = webpush.generateVAPIDKeys();
+  vapidPublic = keys.publicKey;
+  vapidPrivate = keys.privateKey;
+  setSetting('vapid_public', vapidPublic);
+  setSetting('vapid_private', vapidPrivate);
+}
+webpush.setVapidDetails('mailto:admin@andromeda.app', vapidPublic, vapidPrivate);
+
+function sendPush(title, body, kind) {
+  const subs = db.prepare('SELECT endpoint, sub FROM push_subs').all();
+  for (const row of subs) {
+    webpush.sendNotification(JSON.parse(row.sub), JSON.stringify({ title, body, kind }))
+      .catch(err => {
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          db.prepare('DELETE FROM push_subs WHERE endpoint=?').run(row.endpoint);
+        }
+      });
+  }
+}
+
 const app = express();
 app.use(express.json({ limit: '25mb' }));
 app.use(express.text({ type: 'text/csv', limit: '10mb' }));
@@ -151,7 +191,25 @@ function extractSale(body) {
   const product = (body.products && body.products[0] && body.products[0].name) ||
     (body.product && (body.product.name || body.product)) || body.product_name || null;
   const customer = (body.customer && (body.customer.name || body.customer.email)) || null;
-  return { amount, externalId, date: dh.date, hour: dh.hour, product, customer };
+  const customerKey = (body.customer && (body.customer.email || body.customer.phone_number || body.customer.phone || body.customer.document) || '')
+    .toString().trim().toLowerCase() || null;
+  const firstName = customer ? String(customer).trim().split(/\s+/)[0] : null;
+  const payRaw = String(body.payment_method || (body.payment && body.payment.method) || body.method || '').toUpperCase();
+  let payment = 'outro';
+  if (payRaw.includes('PIX')) payment = 'pix';
+  else if (payRaw.includes('CARD') || payRaw.includes('CART') || payRaw.includes('CREDIT')) payment = 'cartao';
+  else if (payRaw.includes('BOLETO')) payment = 'boleto';
+  return { amount, externalId, date: dh.date, hour: dh.hour, product, customer, customerKey, firstName, payment };
+}
+
+function fmtR$(v) { return 'R$ ' + (v || 0).toFixed(2).replace('.', ','); }
+function notifBody(s, repeatN) {
+  const parts = [];
+  if (s.product) parts.push(s.product);
+  if (s.firstName) parts.push(s.firstName);
+  let b = parts.join(' · ') || 'Venda';
+  if (repeatN >= 2) b += ` 🔁 ${repeatN}ª compra`;
+  return b;
 }
 
 const logWebhook = (event, s, result, body) => {
@@ -167,16 +225,39 @@ app.post('/webhook/kirvano', (req, res) => {
   const event = String(body.event || body.event_type || body.type || body.status || '').toUpperCase();
   const s = extractSale(body);
 
+  // Pix gerado: conta pra conversão e notifica, mas NÃO entra como venda
+  if (event.includes('GERADO') || event.includes('GENERATED') || event.includes('WAITING_PAYMENT') || event.includes('PENDING')) {
+    try {
+      db.prepare('INSERT OR IGNORE INTO pix_events(external_id, amount, date, hour) VALUES(?,?,?,?)')
+        .run(s.externalId, s.amount, s.date, s.hour);
+    } catch (e) { /* segue */ }
+    logWebhook(event, s, 'pix gerado', body);
+    sendPush(`PIX Gerado · ${fmtR$(s.amount)}`, notifBody(s, 0), 'pix');
+    return res.json({ ok: true, pix: true });
+  }
+
   if (event.includes('APPROVED') || event.includes('APROVAD')) {
     if (s.amount == null) { logWebhook(event, s, 'erro: sem valor', body); return res.status(400).json({ error: 'valor não encontrado no payload' }); }
+    // recompra: quantas vendas anteriores desse mesmo cliente
+    let repeatN = 0;
+    if (s.customerKey) {
+      repeatN = db.prepare('SELECT COUNT(*) n FROM sales WHERE customer_key=?').get(s.customerKey).n + 1;
+    }
     try {
-      db.prepare('INSERT INTO sales(external_id, amount, date, hour, product, customer) VALUES(?,?,?,?,?,?)')
-        .run(s.externalId, s.amount, s.date, s.hour, s.product, s.customer);
+      db.prepare('INSERT INTO sales(external_id, amount, date, hour, product, customer, customer_key) VALUES(?,?,?,?,?,?,?)')
+        .run(s.externalId, s.amount, s.date, s.hour, s.product, s.customer, s.customerKey);
     } catch (e) {
       if (String(e).includes('UNIQUE')) { logWebhook(event, s, 'duplicada', body); return res.json({ ok: true, duplicate: true }); }
       throw e;
     }
+    // marca o pix correspondente como pago (pra taxa de conversão)
+    if (s.externalId) db.prepare('UPDATE pix_events SET paid=1 WHERE external_id=?').run(s.externalId);
     logWebhook(event, s, 'venda registrada', body);
+    const title = s.payment === 'pix' ? `PIX Pago ✅ · ${fmtR$(s.amount)}`
+      : s.payment === 'cartao' ? `Cartão Aprovado ✅ · ${fmtR$(s.amount)}`
+      : s.payment === 'boleto' ? `Boleto Pago ✅ · ${fmtR$(s.amount)}`
+      : `Venda Aprovada ✅ · ${fmtR$(s.amount)}`;
+    sendPush(title, notifBody(s, repeatN), 'approved');
     return res.json({ ok: true });
   }
 
@@ -188,6 +269,7 @@ app.post('/webhook/kirvano', (req, res) => {
       if (row) removed = db.prepare('DELETE FROM sales WHERE id=?').run(row.id).changes;
     }
     logWebhook(event, s, removed ? 'reembolso removido' : 'reembolso: venda não encontrada', body);
+    if (removed) sendPush(`Reembolso ❌ · ${fmtR$(s.amount || 0)}`, notifBody(s, 0), 'refund');
     return res.json({ ok: true, removed });
   }
 
@@ -213,6 +295,54 @@ app.post('/api/repair-dates', auth, (req, res) => {
     if (date !== r.date || hour !== r.hour) { upd.run(date, hour, r.id); fixed++; }
   }
   res.json({ ok: true, fixed, total: rows.length });
+});
+
+// ---- push ----
+app.get('/api/push/key', auth, (req, res) => res.json({ key: vapidPublic }));
+app.post('/api/push/subscribe', auth, (req, res) => {
+  const sub = req.body;
+  if (!sub || !sub.endpoint) return res.status(400).json({ error: 'subscription inválida' });
+  db.prepare('INSERT INTO push_subs(endpoint, sub) VALUES(?,?) ON CONFLICT(endpoint) DO UPDATE SET sub=excluded.sub')
+    .run(sub.endpoint, JSON.stringify(sub));
+  res.json({ ok: true });
+});
+app.post('/api/push/test', auth, (req, res) => {
+  sendPush('PIX Pago ✅ · R$ 17,93', 'Teste · Andrômeda 🔁 2ª compra', 'approved');
+  res.json({ ok: true });
+});
+
+// ---- som customizado da venda aprovada (mp3 em base64, vale pra todos os aparelhos) ----
+app.get('/api/sound', auth, (req, res) => {
+  const s = getSetting('custom_sound');
+  res.json({ sound: s || null });
+});
+app.put('/api/sound', auth, (req, res) => {
+  const s = req.body.sound;
+  if (!s || typeof s !== 'string' || !s.startsWith('data:audio')) return res.status(400).json({ error: 'arquivo de áudio inválido' });
+  if (s.length > 1500000) return res.status(400).json({ error: 'arquivo muito grande (máx. ~1MB)' });
+  setSetting('custom_sound', s);
+  res.json({ ok: true });
+});
+app.delete('/api/sound', auth, (req, res) => {
+  db.prepare("DELETE FROM settings WHERE key='custom_sound'").run();
+  res.json({ ok: true });
+});
+
+// ---- resumo mensal ----
+app.get('/api/months', auth, (req, res) => {
+  const rev = db.prepare(`SELECT substr(date,1,7) m, SUM(amount) revenue, COUNT(*) n FROM sales GROUP BY m`).all();
+  const sp = db.prepare(`SELECT substr(date,1,7) m, SUM(amount) spend FROM ad_spend GROUP BY m`).all();
+  const map = {};
+  for (const r of rev) map[r.m] = { month: r.m, revenue: +r.revenue.toFixed(2), sales: r.n, spend: 0 };
+  for (const r of sp) {
+    if (!map[r.m]) map[r.m] = { month: r.m, revenue: 0, sales: 0, spend: 0 };
+    map[r.m].spend = +r.spend.toFixed(2);
+  }
+  const out = Object.values(map).sort((a, b) => a.month < b.month ? 1 : -1).map(m => {
+    const tax = m.spend * TAX_RATE, cost = m.spend + tax;
+    return { ...m, tax: +tax.toFixed(2), cost: +cost.toFixed(2), profit: +(m.revenue - cost).toFixed(2), roi: cost > 0 ? +(m.revenue / cost).toFixed(2) : null };
+  });
+  res.json(out);
 });
 
 // ---- limites do gráfico de ROI ----
@@ -385,11 +515,13 @@ app.get('/api/summary', auth, (req, res) => {
   const y = new Date(date + 'T12:00:00Z'); y.setUTCDate(y.getUTCDate() - 1);
   const yesterday = y.toISOString().slice(0, 10);
   const monthStart = date.slice(0, 8) + '01';
+  const pix = db.prepare('SELECT COUNT(*) total, COALESCE(SUM(paid),0) paid FROM pix_events WHERE date=?').get(date);
   res.json({
     today: { date, ...statsFor(date, date) },
     yesterday: { date: yesterday, ...statsFor(yesterday, yesterday) },
     month: { from: monthStart, to: date, ...statsFor(monthStart, date) },
     now: { date: nowDate, ...statsFor(nowDate, nowDate) },
+    pix: { generated: pix.total, paid: pix.paid },
     taxRate: TAX_RATE
   });
 });

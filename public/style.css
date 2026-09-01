@@ -125,6 +125,29 @@ button{font-family:inherit;cursor:pointer;background:none;border:none;color:inhe
 .hero-foot-item .v{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--text-1);}
 .hero-foot-item .v.roi{color:var(--gold);}
 
+/* conversão de pix no hero */
+.pix-conv{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-2);margin:-6px 0 14px;position:relative;}
+.pix-conv b{color:var(--gold);font-weight:600;}
+
+/* resumo mensal */
+.roi-badge{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:5px 11px;border-radius:100px;flex-shrink:0;}
+.roi-badge.g{color:var(--green);background:rgba(63,206,147,0.1);border:1px solid rgba(63,206,147,0.3);}
+.roi-badge.y{color:var(--gold);background:rgba(245,183,102,0.1);border:1px solid rgba(245,183,102,0.3);}
+.roi-badge.r{color:#EF5C7E;background:rgba(239,92,126,0.1);border:1px solid rgba(239,92,126,0.35);}
+.roi-badge.n{color:var(--text-3);background:rgba(255,255,255,0.04);border:1px solid var(--border);}
+.month-row{border-bottom:1px solid var(--border);}
+.month-row:last-child{border-bottom:none;}
+.month-row-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 2px;cursor:pointer;}
+.month-row-head:active{opacity:.7;}
+.month-name{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;}
+.month-meta{font-size:11px;color:var(--text-2);margin-top:3px;}
+.month-meta b{color:var(--text-1);font-weight:600;}
+.month-meta b.lucro{color:var(--green);}
+.month-meta b.inv{color:var(--rose);}
+.month-expand{display:none;padding:4px 0 14px;}
+.month-row.open .month-expand{display:block;}
+.month-expand .chart-wrap{height:150px;}
+
 /* ---------- spend strip ---------- */
 .spend-strip{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:13px 14px;margin-bottom:14px;transition:all .15s;}
 .spend-strip:active{transform:scale(0.98);border-color:var(--border-hi);}

@@ -1,4 +1,4 @@
-const CACHE = 'andromeda-v18';
+const CACHE = 'andromeda-v19';
 const ASSETS = ['/', '/style.css', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -21,4 +21,28 @@ self.addEventListener('fetch', e => {
       return res;
     }).catch(() => caches.match(e.request))
   );
+});
+
+self.addEventListener('push', e => {
+  let data = { title: 'Andrômeda', body: '', kind: null };
+  try { data = e.data.json(); } catch (_) {}
+  e.waitUntil((async () => {
+    await self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      vibrate: [100, 50, 100]
+    });
+    // avisa o app aberto pra tocar o som customizado
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of clients) c.postMessage({ type: 'notification', kind: data.kind });
+  })());
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window' }).then(list => {
+    if (list.length) return list[0].focus();
+    return self.clients.openWindow('/');
+  }));
 });
