@@ -1,5 +1,5 @@
-const CACHE = 'andromeda-v19';
-const ASSETS = ['/', '/style.css', '/app.js', '/manifest.json'];
+const CACHE = 'andromeda-v20';
+const ASSETS = ['/', '/style.css', '/app.js', '/manifest.json', '/cash.mp3'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

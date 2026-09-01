@@ -869,10 +869,11 @@ function synthTone(t0, freq, dur, type, vol, partials) {
   });
 }
 function playApproved() {
-  if (customSound) {
-    try { new Audio(customSound).play().catch(() => {}); return; } catch (e) { /* cai no padrão */ }
-  }
-  // cha-ching padrão (sino duplo)
+  // som customizado (MP3 enviado) > cash.mp3 padrão do app > sintetizado
+  try { new Audio(customSound || '/cash.mp3').play().catch(() => playApprovedSynth()); }
+  catch (e) { playApprovedSynth(); }
+}
+function playApprovedSynth() {
   const bell = [[1, 1], [2.76, 0.55], [5.4, 0.28], [8.9, 0.12]];
   synthTone(0, 1568, 0.55, 'sine', 0.2, bell);
   synthTone(0.13, 2093, 0.9, 'sine', 0.24, bell);
