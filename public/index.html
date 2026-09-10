@@ -111,6 +111,7 @@
           <div class="hero-sub-n" id="heroVendas">0 vendas</div>
         </div>
         <div class="pix-conv hidden" id="pixConv"></div>
+        <button class="pix-conv refund-line hidden" id="refundLine"></button>
 
         <div class="hero-foot">
           <div class="hero-foot-item"><div class="k">Investido</div><div class="v" id="hInvestido">—</div></div>
@@ -188,9 +189,9 @@
           </div>
           <div class="chart-title-sub">Faturamento por dia</div>
         </div>
-        <div class="compare-toggle" id="compareToggle">
-          Comparar
-          <div class="switch" id="switchEl"></div>
+        <div class="compare-toggle" id="lucroToggle">
+          Lucro
+          <div class="switch on" id="lucroSwitch"></div>
         </div>
       </div>
 
@@ -259,9 +260,9 @@
       <div class="chart-wrap"><canvas id="chartRoi"></canvas></div>
 
       <div class="legend-row">
-        <span><span class="dot" style="background:var(--green)"></span>Bom</span>
-        <span><span class="dot" style="background:var(--gold)"></span>Atenção</span>
-        <span><span class="dot" style="background:#EF5C7E"></span>Ruim</span>
+        <span><span class="dot" style="background:var(--green)"></span>Bateu a meta</span>
+        <span><span class="dot" style="background:var(--gold)"></span>Abaixo da meta</span>
+        <span><span class="dot" style="background:#EF5C7E"></span>Prejuízo</span>
       </div>
     </div>
 
@@ -410,13 +411,11 @@
     </div>
 
     <div class="chart-card fade-up" style="--d:.06s">
-      <div class="chart-head"><div><div class="chart-title">Zonas do ROI</div>
-      <div class="chart-title-sub">Define as faixas do gráfico: vermelho abaixo do 1º limite, verde acima do 2º, amarelo no meio</div></div></div>
-      <label class="field-label">Limite vermelho (abaixo disso é ruim)</label>
-      <input type="text" inputmode="decimal" id="roiRed" class="input w100" placeholder="Ex.: 1,5">
-      <label class="field-label">Limite verde (acima disso é bom)</label>
-      <input type="text" inputmode="decimal" id="roiGreen" class="input w100" placeholder="Ex.: 1,7">
-      <button class="btn-gold w100" id="btnSaveRoi">Salvar zonas</button>
+      <div class="chart-head"><div><div class="chart-title">Meta de ROI</div>
+      <div class="chart-title-sub">Verde = bateu a meta · dourado = lucrou abaixo dela · vermelho = prejuízo (abaixo de 1,0)</div></div></div>
+      <label class="field-label">Meta</label>
+      <input type="text" inputmode="decimal" id="roiGoalInput" class="input w100" placeholder="Ex.: 1,6">
+      <button class="btn-gold w100" id="btnSaveRoi">Salvar meta</button>
       <p class="hint" id="roiSaveResult"></p>
     </div>
 

@@ -63,8 +63,18 @@ CREATE TABLE IF NOT EXISTS pix_events (
   paid INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS refunds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  external_id TEXT,
+  amount REAL,
+  date TEXT NOT NULL,
+  hour INTEGER,
+  product TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(date);
 CREATE INDEX IF NOT EXISTS idx_pix_date ON pix_events(date);
+CREATE INDEX IF NOT EXISTS idx_refunds_date ON refunds(date);
 `);
 try { db.exec('ALTER TABLE sales ADD COLUMN customer_key TEXT'); } catch (e) { /* já existe */ }
 
@@ -262,14 +272,19 @@ app.post('/webhook/kirvano', (req, res) => {
   }
 
   if (event.includes('REFUND') || event.includes('REEMBOLS') || event.includes('CHARGEBACK') || event.includes('CHARGED_BACK')) {
+    // localiza a venda antes de remover, pra guardar o registro do reembolso
+    let sale = null;
+    if (s.externalId) sale = db.prepare('SELECT * FROM sales WHERE external_id=?').get(s.externalId);
+    if (!sale && s.amount != null) sale = db.prepare('SELECT * FROM sales WHERE amount=? ORDER BY id DESC LIMIT 1').get(s.amount);
     let removed = 0;
-    if (s.externalId) removed = db.prepare('DELETE FROM sales WHERE external_id=?').run(s.externalId).changes;
-    if (!removed && s.amount != null) {
-      const row = db.prepare('SELECT id FROM sales WHERE amount=? ORDER BY id DESC LIMIT 1').get(s.amount);
-      if (row) removed = db.prepare('DELETE FROM sales WHERE id=?').run(row.id).changes;
+    if (sale) {
+      removed = db.prepare('DELETE FROM sales WHERE id=?').run(sale.id).changes;
+      const now = brNow(); // o reembolso conta no dia/hora em que aconteceu
+      db.prepare('INSERT INTO refunds(external_id, amount, date, hour, product) VALUES(?,?,?,?,?)')
+        .run(sale.external_id, sale.amount, now.date, now.hour, sale.product || s.product);
     }
     logWebhook(event, s, removed ? 'reembolso removido' : 'reembolso: venda não encontrada', body);
-    if (removed) sendPush(`Reembolso ❌ · ${fmtR$(s.amount || 0)}`, notifBody(s, 0), 'refund');
+    if (removed) sendPush(`Reembolso ❌ · ${fmtR$((sale && sale.amount) || s.amount || 0)}`, notifBody(s, 0), 'refund');
     return res.json({ ok: true, removed });
   }
 
@@ -332,34 +347,43 @@ app.delete('/api/sound', auth, (req, res) => {
 app.get('/api/months', auth, (req, res) => {
   const rev = db.prepare(`SELECT substr(date,1,7) m, SUM(amount) revenue, COUNT(*) n FROM sales GROUP BY m`).all();
   const sp = db.prepare(`SELECT substr(date,1,7) m, SUM(amount) spend FROM ad_spend GROUP BY m`).all();
+  const rf = db.prepare(`SELECT substr(date,1,7) m, COUNT(*) n, COALESCE(SUM(amount),0) t FROM refunds GROUP BY m`).all();
   const map = {};
-  for (const r of rev) map[r.m] = { month: r.m, revenue: +r.revenue.toFixed(2), sales: r.n, spend: 0 };
+  for (const r of rev) map[r.m] = { month: r.m, revenue: +r.revenue.toFixed(2), sales: r.n, spend: 0, refunds: 0, refundTotal: 0 };
   for (const r of sp) {
-    if (!map[r.m]) map[r.m] = { month: r.m, revenue: 0, sales: 0, spend: 0 };
+    if (!map[r.m]) map[r.m] = { month: r.m, revenue: 0, sales: 0, spend: 0, refunds: 0, refundTotal: 0 };
     map[r.m].spend = +r.spend.toFixed(2);
+  }
+  for (const r of rf) {
+    if (!map[r.m]) map[r.m] = { month: r.m, revenue: 0, sales: 0, spend: 0, refunds: 0, refundTotal: 0 };
+    map[r.m].refunds = r.n;
+    map[r.m].refundTotal = +r.t.toFixed(2);
   }
   const out = Object.values(map).sort((a, b) => a.month < b.month ? 1 : -1).map(m => {
     const tax = m.spend * TAX_RATE, cost = m.spend + tax;
-    return { ...m, tax: +tax.toFixed(2), cost: +cost.toFixed(2), profit: +(m.revenue - cost).toFixed(2), roi: cost > 0 ? +(m.revenue / cost).toFixed(2) : null };
+    const refundRate = (m.sales + m.refunds) > 0 ? +((m.refunds / (m.sales + m.refunds)) * 100).toFixed(1) : 0;
+    return { ...m, tax: +tax.toFixed(2), cost: +cost.toFixed(2), profit: +(m.revenue - cost).toFixed(2), roi: cost > 0 ? +(m.revenue / cost).toFixed(2) : null, refundRate };
   });
   res.json(out);
 });
 
-// ---- limites do gráfico de ROI ----
+// ---- reembolsos de um dia (com horários) ----
+app.get('/api/refunds', auth, (req, res) => {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : brNow().date;
+  res.json(db.prepare('SELECT amount, hour, product, created_at FROM refunds WHERE date=? ORDER BY hour DESC, id DESC').all(date));
+});
+
+// ---- meta do gráfico de ROI (prejuízo é sempre 1,0) ----
 app.get('/api/roi-limits', auth, (req, res) => {
-  res.json({
-    red: parseFloat(getSetting('roi_red') || '1.5'),
-    green: parseFloat(getSetting('roi_green') || '1.7')
-  });
+  res.json({ goal: parseFloat(getSetting('roi_goal') || '1.6') });
 });
 app.put('/api/roi-limits', auth, (req, res) => {
-  const red = parseAmount(req.body.red), green = parseAmount(req.body.green);
-  if (red == null || green == null || red <= 0 || green <= red) {
-    return res.status(400).json({ error: 'Limites inválidos: o verde precisa ser maior que o vermelho.' });
+  const goal = parseAmount(req.body.goal);
+  if (goal == null || goal <= 1) {
+    return res.status(400).json({ error: 'A meta precisa ser maior que 1,0 (abaixo disso é prejuízo).' });
   }
-  setSetting('roi_red', String(red));
-  setSetting('roi_green', String(green));
-  res.json({ ok: true, red, green });
+  setSetting('roi_goal', String(goal));
+  res.json({ ok: true, goal });
 });
 
 // ---- gasto de anúncio ----
@@ -516,7 +540,9 @@ app.get('/api/summary', auth, (req, res) => {
   const yesterday = y.toISOString().slice(0, 10);
   const monthStart = date.slice(0, 8) + '01';
   const pix = db.prepare('SELECT COUNT(*) total, COALESCE(SUM(paid),0) paid FROM pix_events WHERE date=?').get(date);
+  const ref = db.prepare('SELECT COUNT(*) n, COALESCE(SUM(amount),0) t FROM refunds WHERE date=?').get(date);
   res.json({
+    refunds: { count: ref.n, total: +ref.t.toFixed(2) },
     today: { date, ...statsFor(date, date) },
     yesterday: { date: yesterday, ...statsFor(yesterday, yesterday) },
     month: { from: monthStart, to: date, ...statsFor(monthStart, date) },

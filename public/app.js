@@ -273,8 +273,7 @@ function goto(page) {
   if (page === 'mensal') loadMensal();
   if (page === 'config') {
     loadWebhookLog(); loadVersion();
-    $('roiRed').value = String(roiLimits.red).replace('.', ',');
-    $('roiGreen').value = String(roiLimits.green).replace('.', ',');
+    $('roiGoalInput').value = String(roiGoal).replace('.', ',');
   }
   if (page === 'painel') refreshAll();
 }
@@ -283,7 +282,7 @@ document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click'
 
 /* ================= DASHBOARD ================= */
 let chartEv = null, chartHours = null;
-let evDays = 'mes', hDays = 1, compareOn = false;
+let evDays = 'mes', hDays = 1, showLucro = true;
 
 const tooltipStyle = {
   backgroundColor: '#171429', borderColor: 'rgba(245,183,102,0.4)', borderWidth: 1,
@@ -329,6 +328,14 @@ async function loadSummary() {
     pc.classList.remove('hidden');
   } else pc.classList.add('hidden');
 
+  // reembolsos do dia visto
+  const rl = $('refundLine');
+  if (s.refunds && s.refunds.count > 0) {
+    rl.innerHTML = `↩ <b>${s.refunds.count}</b> reembolso${s.refunds.count === 1 ? '' : 's'} · <b>− ${fmtBRL(s.refunds.total)}</b> · toque pra ver`;
+    rl.classList.remove('hidden');
+    rl.dataset.date = t.date;
+  } else rl.classList.add('hidden');
+
   $('spendLabel').textContent = viewing ? 'Gasto em anúncios ' + fmtDate(t.date) : 'Gasto em anúncios hoje';
   $('spendToday').textContent = fmtBRL(t.spend);
   $('spendTaxToday').textContent = '+ ' + fmtBRL(t.tax) + ' de imposto';
@@ -372,6 +379,27 @@ async function loadSummary() {
   $('datePillBtn').classList.toggle('viewing', viewing);
 }
 
+/* ---- lista de reembolsos do dia ---- */
+$('refundLine').addEventListener('click', async () => {
+  const date = $('refundLine').dataset.date || brToday();
+  const rows = await api('/api/refunds?date=' + date);
+  openModal(`
+    <div class="modal-title">Reembolsos de ${fmtDate(date)}</div>
+    <div class="modal-sub">${rows.length} no total · − ${fmtBRL(rows.reduce((a, r) => a + (r.amount || 0), 0))}</div>
+    <div class="list" style="max-height:50vh;overflow-y:auto">
+      ${rows.map(r => `
+        <div class="sale-row">
+          <div class="sale-info">
+            <div class="sale-amt" style="color:var(--rose)">− ${fmtBRL(r.amount)}</div>
+            <div class="sale-meta">${r.hour != null ? 'às ' + r.hour + 'h' : ''}${r.product ? ' — ' + r.product : ''}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+    <button class="btn-ghost w100" id="mRefClose" style="margin-top:12px">Fechar</button>
+  `);
+  $('mRefClose').onclick = closeModal;
+});
+
 /* ---- escolher a data do painel ---- */
 $('datePillBtn').addEventListener('click', () => {
   const today = brToday();
@@ -411,16 +439,10 @@ async function loadEvolution() {
     curr.push(map[d] ? map[d].revenue : 0);
   }
 
-  let prev = null;
-  if (compareOn) {
-    // período anterior com o mesmo número de dias, logo antes
-    const pRows = await api(`/api/daily?from=${brToday(nDays * 2 - 1)}&to=${brToday(nDays)}`);
-    const pMap = Object.fromEntries(pRows.map(r => [r.date, r]));
-    prev = [];
-    for (let i = nDays * 2 - 1; i >= nDays; i--) {
-      const d = brToday(i);
-      prev.push(pMap[d] ? pMap[d].revenue : 0);
-    }
+  const profit = [];
+  for (let i = nDays - 1; i >= 0; i--) {
+    const d = brToday(i);
+    profit.push(map[d] ? map[d].profit : 0);
   }
 
   const ctx = $('chartEv').getContext('2d');
@@ -429,19 +451,19 @@ async function loadEvolution() {
   grad.addColorStop(1, 'rgba(245,183,102,0)');
 
   const datasets = [{
-    label: 'Período atual', data: curr, borderColor: '#F5B766', backgroundColor: grad,
+    label: 'Faturamento', data: curr, borderColor: '#F5B766', backgroundColor: grad,
     borderWidth: 2.5, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 5,
     pointHoverBackgroundColor: '#F5B766', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2
   }];
-  if (prev) datasets.push({
-    label: 'Período anterior', data: prev, borderColor: '#8C7BEF', backgroundColor: 'rgba(0,0,0,0)',
+  if (showLucro) datasets.push({
+    label: 'Lucro', data: profit, borderColor: '#3FCE93', backgroundColor: 'rgba(0,0,0,0)',
     borderWidth: 2, borderDash: [5, 4], fill: false, tension: 0.4, pointRadius: 0, pointHoverRadius: 4,
-    pointHoverBackgroundColor: '#8C7BEF', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2
+    pointHoverBackgroundColor: '#3FCE93', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2
   });
 
   $('evLegend').innerHTML =
-    '<span><span class="dot" style="background:var(--gold)"></span>Período atual</span>' +
-    (prev ? '<span><span class="dot" style="background:var(--violet)"></span>Período anterior</span>' : '');
+    '<span><span class="dot" style="background:var(--gold)"></span>Faturamento</span>' +
+    (showLucro ? '<span><span class="dot" style="background:var(--green)"></span>Lucro</span>' : '');
 
   if (chartEv) chartEv.destroy();
   chartEv = new Chart(ctx, {
@@ -459,9 +481,9 @@ async function loadEvolution() {
   });
 }
 
-$('compareToggle').addEventListener('click', () => {
-  compareOn = !compareOn;
-  $('switchEl').classList.toggle('on', compareOn);
+$('lucroToggle').addEventListener('click', () => {
+  showLucro = !showLucro;
+  $('lucroSwitch').classList.toggle('on', showLucro);
   loadEvolution();
 });
 
@@ -514,8 +536,8 @@ $('hPeriods').addEventListener('click', e => {
 });
 
 /* ================= GRÁFICO DE ROI (zonas verde/amarela/vermelha) ================= */
-let chartRoi = null, roiDays = 'mes', roiBestIdx = -1;
-let roiLimits = { red: 1.5, green: 1.7 };
+let chartRoi = null, roiDays = 'mes', roiBestIdx = -1, roiVals = [];
+let roiGoal = 1.6;
 
 // destaque do melhor dia: degradê subindo pela barra + estrela girando (camada CSS, zero custo de canvas)
 function positionRoiBestFx(chart) {
@@ -536,9 +558,9 @@ function positionRoiBestFx(chart) {
   const el = chart.getDatasetMeta(0).data[roiBestIdx];
   if (!el) return;
   const x = chart.scales.x.getPixelForValue(roiBestIdx);
-  const [a, b] = chart.data.datasets[0].data[roiBestIdx];
-  const y1 = chart.scales.y.getPixelForValue(Math.max(a, b));
-  const y2 = chart.scales.y.getPixelForValue(Math.min(a, b));
+  const v = chart.data.datasets[0].data[roiBestIdx];
+  const y1 = chart.scales.y.getPixelForValue(v);
+  const y2 = chart.scales.y.getPixelForValue(0);
   const w = el.width;
   fx.style.left = (x - w / 2) + 'px';
   fx.style.top = y1 + 'px';
@@ -549,8 +571,8 @@ function positionRoiBestFx(chart) {
 }
 
 async function loadRoiLimits() {
-  try { roiLimits = await api('/api/roi-limits'); } catch (e) { /* usa o padrão */ }
-  $('roiFloorText').textContent = `zonas: vermelho < ${String(roiLimits.red).replace('.', ',')} · verde > ${String(roiLimits.green).replace('.', ',')}`;
+  try { roiGoal = (await api('/api/roi-limits')).goal; } catch (e) { /* usa o padrão */ }
+  $('roiFloorText').textContent = `meta: ${String(roiGoal).replace('.', ',')} · prejuízo abaixo de 1,0`;
 }
 
 const roiZonesPlugin = {
@@ -558,49 +580,59 @@ const roiZonesPlugin = {
   beforeDraw(chart) {
     const { ctx, chartArea: a, scales: { y } } = chart;
     if (!a) return;
-    const yGreen = y.getPixelForValue(roiLimits.green);
-    const yRed = y.getPixelForValue(roiLimits.red);
-    const floor = (roiLimits.red + roiLimits.green) / 2;
-    const yFloor = y.getPixelForValue(floor);
-    ctx.save();
-    ctx.fillStyle = 'rgba(63,206,147,0.06)';
-    ctx.fillRect(a.left, a.top, a.width, Math.max(0, yGreen - a.top));
-    ctx.fillStyle = 'rgba(245,183,102,0.07)';
-    ctx.fillRect(a.left, yGreen, a.width, Math.max(0, yRed - yGreen));
-    ctx.fillStyle = 'rgba(239,92,126,0.07)';
-    ctx.fillRect(a.left, yRed, a.width, Math.max(0, a.bottom - yRed));
-
-    // abaixo de 1,0 = prejuízo: zona de perigo + linha vermelha contínua
+    const yGoal = y.getPixelForValue(roiGoal);
     const yOne = y.getPixelForValue(1);
+    ctx.save();
+    // faixa suave acima da meta
+    ctx.fillStyle = 'rgba(63,206,147,0.05)';
+    ctx.fillRect(a.left, a.top, a.width, Math.max(0, yGoal - a.top));
+    // zona de prejuízo (abaixo de 1,0)
     if (yOne > a.top && yOne < a.bottom) {
-      ctx.fillStyle = 'rgba(239,92,126,0.13)';
+      ctx.fillStyle = 'rgba(239,92,126,0.1)';
       ctx.fillRect(a.left, yOne, a.width, a.bottom - yOne);
-      ctx.strokeStyle = '#EF5C7E';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(239,92,126,0.7)';
+      ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(a.left, yOne); ctx.lineTo(a.right, yOne); ctx.stroke();
       ctx.fillStyle = '#EF5C7E';
       ctx.font = '600 9px Inter, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('1,0 · abaixo é prejuízo', a.left + 4, yOne + 11);
+      ctx.fillText('1,0 · prejuízo', a.left + 4, yOne + 11);
     }
-    // linha central bem marcada
+    // linha da meta bem marcada
     ctx.strokeStyle = '#F5B766';
     ctx.lineWidth = 2;
     ctx.setLineDash([6, 4]);
-    ctx.beginPath(); ctx.moveTo(a.left, yFloor); ctx.lineTo(a.right, yFloor); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(a.left, yGoal); ctx.lineTo(a.right, yGoal); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#F5B766';
     ctx.font = '700 10.5px "Space Grotesk", sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(String(floor.toFixed(2)).replace('.', ',').replace(/,?0+$/, m => m.includes(',') ? '' : m), a.right - 2, yFloor - 5);
+    ctx.textAlign = 'left';
+    ctx.fillText('meta ' + String(roiGoal).replace('.', ','), a.left + 4, yGoal - 6);
+    ctx.restore();
+  },
+  // valor escrito em cima de cada barra (quando cabe)
+  afterDatasetsDraw(chart) {
+    if (roiVals.filter(v => v != null).length > 16) return;
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    ctx.save();
+    ctx.font = '600 9px "Space Grotesk", sans-serif';
+    ctx.textAlign = 'center';
+    roiVals.forEach((v, i) => {
+      if (v == null) return;
+      const el = meta.data[i];
+      if (!el) return;
+      ctx.fillStyle = i === roiBestIdx ? '#FFD9A0' : roiColor(v);
+      ctx.fillText(String(v).replace('.', ','), el.x, Math.min(el.y, el.base) - (i === roiBestIdx ? 18 : 5));
+    });
     ctx.restore();
   }
 };
 
 function roiColor(v) {
-  if (v < roiLimits.red) return '#EF5C7E';
-  if (v > roiLimits.green) return '#3FCE93';
-  return '#F5B766';
+  if (v < 1) return '#EF5C7E';        // prejuízo real
+  if (v < roiGoal) return '#F5B766';  // lucrou, abaixo da meta
+  return '#3FCE93';                   // bateu a meta
 }
 
 async function loadRoi() {
@@ -626,6 +658,7 @@ async function loadRoi() {
       if (r) totalRev += r.revenue;
     }
   }
+  roiVals = vals;
 
   // ROI geral do período
   const periodRoi = totalCost > 0 ? +(totalRev / totalCost).toFixed(2) : null;
@@ -633,14 +666,8 @@ async function loadRoi() {
   pv.textContent = periodRoi != null ? String(periodRoi).replace('.', ',') + 'x' : '—';
   pv.style.color = periodRoi == null ? 'var(--text-3)' : roiColor(periodRoi);
 
-  const floor = (roiLimits.red + roiLimits.green) / 2;
   const nums = vals.filter(v => v != null);
-  const yMin = Math.max(0, Math.min(roiLimits.red - 0.4, ...(nums.length ? nums : [floor])) - 0.2);
-  const yMax = Math.max(roiLimits.green + 0.4, ...(nums.length ? nums : [floor])) * 1.08 + 0.25;
-
-  const ctx = $('chartRoi').getContext('2d');
-  if (chartRoi) chartRoi.destroy();
-  const tick = (yMax - yMin) * 0.012; // altura mínima visível
+  const yMax = Math.max(roiGoal + 0.4, ...(nums.length ? nums : [roiGoal])) * 1.18;
 
   // melhor dia do período (só destaca se tiver mais de um dia com ROI)
   roiBestIdx = -1;
@@ -649,18 +676,17 @@ async function loadRoi() {
     roiBestIdx = withRoi.reduce((a, b) => (b[0] > a[0] ? b : a))[1];
   }
 
+  const ctx = $('chartRoi').getContext('2d');
+  if (chartRoi) chartRoi.destroy();
+  const tick = yMax * 0.02; // tracinho do dia sem investimento
   chartRoi = new Chart(ctx, {
     type: 'bar',
     plugins: [roiZonesPlugin],
     data: { labels, datasets: [{
-      // barra nasce na linha do piso; ROI colado no piso ganha altura mínima pra não sumir
-      data: vals.map(v => {
-        if (v == null) return [floor - tick, floor + tick];
-        if (Math.abs(v - floor) < tick * 1.6) return [floor - tick, floor + tick];
-        return [floor, v];
-      }),
-      backgroundColor: vals.map(v => v == null ? 'rgba(201,187,255,0.35)' : roiColor(v)),
-      borderRadius: 3, borderSkipped: false, barPercentage: 0.6
+      // barras inteiras, do chão: a altura É o ROI do dia
+      data: vals.map(v => v == null ? tick : v),
+      backgroundColor: vals.map(v => v == null ? 'rgba(201,187,255,0.3)' : roiColor(v)),
+      borderRadius: 4, borderSkipped: false, barPercentage: 0.6
     }]},
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -674,7 +700,7 @@ async function loadRoi() {
       }},
       scales: {
         x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 9, family: 'Inter' }, maxTicksLimit: 10, maxRotation: 0 } },
-        y: { display: false, min: yMin, max: yMax }
+        y: { display: false, min: 0, max: yMax }
       }
     }
   });
@@ -907,9 +933,9 @@ function monthLabel(ym) {
 }
 function roiBadgeClass(roi) {
   if (roi == null) return 'n';
-  if (roi < roiLimits.red) return 'r';
-  if (roi > roiLimits.green) return 'g';
-  return 'y';
+  if (roi < 1) return 'r';
+  if (roi < roiGoal) return 'y';
+  return 'g';
 }
 function lastDayOfMonth(ym) {
   const [y, m] = ym.split('-').map(Number);
@@ -968,7 +994,7 @@ async function loadMensal() {
     <div><div class="mcard-label">Faturado</div><div class="mcard-value">${fmtBRLshort(cur.revenue)}</div></div>
     <div><div class="mcard-label">Investido</div><div class="mcard-value rose">${fmtBRLshort(cur.cost)}</div><div class="msub">+ ${fmtBRL(cur.tax)}</div></div>
     <div><div class="mcard-label">Lucro</div><div class="mcard-value ${cur.profit < 0 ? 'neg' : 'green'}">${fmtBRLshort(cur.profit)}</div></div>
-    <div><div class="mcard-label">Vendas</div><div class="mcard-value">${cur.sales}</div></div>`;
+    <div><div class="mcard-label">Vendas</div><div class="mcard-value">${cur.sales}</div>${cur.refunds > 0 ? `<div class="msub" style="color:var(--rose)">↩ ${cur.refunds} reemb. (${String(cur.refundRate).replace('.', ',')}%)</div>` : ''}</div>`;
   chartCurMonth = await drawMonthChart('chartCurMonth', curYm, chartCurMonth);
 
   const others = months.filter(m => m.month !== curYm);
@@ -979,7 +1005,7 @@ async function loadMensal() {
       <div class="month-row-head">
         <div>
           <div class="month-name">${monthLabel(m.month)}</div>
-          <div class="month-meta">Fat <b>${fmtBRLshort(m.revenue)}</b> · Inv <b class="inv">${fmtBRLshort(m.cost)}</b> · Lucro <b class="lucro">${fmtBRLshort(m.profit)}</b> · ${m.sales} vendas</div>
+          <div class="month-meta">Fat <b>${fmtBRLshort(m.revenue)}</b> · Inv <b class="inv">${fmtBRLshort(m.cost)}</b> · Lucro <b class="lucro">${fmtBRLshort(m.profit)}</b> · ${m.sales} vendas${m.refunds > 0 ? ` · <b class="inv">${m.refunds} reemb. (${String(m.refundRate).replace('.', ',')}%)</b>` : ''}</div>
         </div>
         <span class="roi-badge ${roiBadgeClass(m.roi)}">${m.roi != null ? String(m.roi).replace('.', ',') + 'x' : '—'}</span>
       </div>
@@ -1054,13 +1080,13 @@ $('btnResetSound').addEventListener('click', async () => {
 });
 
 $('btnSaveRoi').addEventListener('click', async () => {
-  const red = parseVal($('roiRed').value), green = parseVal($('roiGreen').value);
-  if (red == null || green == null) return toast('Preencha os dois limites', 'err');
+  const goal = parseVal($('roiGoalInput').value);
+  if (goal == null) return toast('Informe a meta', 'err');
   try {
-    const r = await api('/api/roi-limits', { method: 'PUT', body: JSON.stringify({ red, green }) });
-    roiLimits = { red: r.red, green: r.green };
-    $('roiSaveResult').textContent = `✓ Vermelho abaixo de ${String(r.red).replace('.', ',')} · verde acima de ${String(r.green).replace('.', ',')}.`;
-    toast('Zonas salvas ✓');
+    const r = await api('/api/roi-limits', { method: 'PUT', body: JSON.stringify({ goal }) });
+    roiGoal = r.goal;
+    $('roiSaveResult').textContent = `✓ Meta de ROI: ${String(r.goal).replace('.', ',')}.`;
+    toast('Meta salva ✓');
     loadRoiLimits(); loadRoi();
   } catch (e) {
     $('roiSaveResult').textContent = '✗ ' + e.message;
