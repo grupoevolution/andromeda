@@ -493,28 +493,62 @@ async function loadHours() {
   if (hDays === 'ontem') { from = to = dateOffsetStr(base, 1); }
   else { to = base; from = dateOffsetStr(base, hDays - 1); }
   const rows = await api(`/api/hours?from=${from}&to=${to}`);
-  const labels = rows.map(r => r.hour + 'h');
-  const data = rows.map(r => r.sales);
-  const max = Math.max(...data);
-  const colors = data.map(v => (max > 0 && v === max) ? '#F5B766' : 'rgba(140,123,239,0.55)');
+  const allData = rows.map(r => r.sales);
+  const max = Math.max(...allData);
+  const peakIdx = max > 0 ? allData.indexOf(max) : -1;
+
+  // hoje ainda em andamento: corta a linha na hora atual
+  let cutoff = 23;
+  if (hDays === 1 && base === brToday()) {
+    cutoff = parseInt(new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(11, 13), 10);
+  }
+  const hLabels = rows.slice(0, cutoff + 1).map(r => r.hour + 'h');
+  const hourly = allData.slice(0, cutoff + 1);
+  const hourlyRev = rows.slice(0, cutoff + 1).map(r => r.revenue);
+  // linha progressiva: acumulado de vendas e de valor até cada hora
+  const cum = [], cumRev = [];
+  hourly.reduce((acc, v, i) => (cum[i] = acc + v), 0);
+  hourlyRev.reduce((acc, v, i) => (cumRev[i] = +(acc + v).toFixed(2)), 0);
+
   const ctx = $('chartHours').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 170);
+  grad.addColorStop(0, 'rgba(245,183,102,0.32)');
+  grad.addColorStop(1, 'rgba(245,183,102,0)');
   if (chartHours) chartHours.destroy();
   chartHours = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 5, borderSkipped: false, barPercentage: 0.62 }] },
+    type: 'line',
+    data: { labels: hLabels, datasets: [{
+      data: cum, borderColor: '#F5B766', backgroundColor: grad, fill: true, tension: 0.3,
+      // o trecho da hora de pico fica mais grosso e brilhante
+      segment: {
+        borderColor: c => (max > 0 && hourly[c.p1DataIndex] === max) ? '#FFD9A0' : '#F5B766',
+        borderWidth: c => (max > 0 && hourly[c.p1DataIndex] === max) ? 4 : 2.2
+      },
+      borderWidth: 2.2,
+      pointRadius: cum.map((_, i) => i === peakIdx ? 4 : 0),
+      pointBackgroundColor: '#FFD9A0', pointBorderColor: '#0B0917', pointBorderWidth: 1.5,
+      pointHoverRadius: 5, pointHoverBackgroundColor: '#F5B766', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2
+    }]},
     options: {
-      responsive: true, maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
       animation: { duration: 900, easing: 'easeOutCubic' },
       plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
-        callbacks: { label: c => c.parsed.y + ' venda' + (c.parsed.y === 1 ? '' : 's') }
+        callbacks: {
+          title: items => 'Até ' + items[0].label,
+          label: c => {
+            const i = c.dataIndex;
+            const lines = [`${cum[i]} venda${cum[i] === 1 ? '' : 's'} · ${fmtBRL(cumRev[i])}`];
+            if (hourly[i] > 0) lines.push(`nessa hora: +${hourly[i]} · +${fmtBRL(hourlyRev[i])}`);
+            return lines;
+          }
+        }
       }},
       scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 9.5, family: 'Inter' }, maxTicksLimit: 12, maxRotation: 0 } },
-                y: { display: false } }
+                y: { display: false, min: 0, max: Math.max(1, cum[cum.length - 1] || 1) * 1.15 } }
     }
   });
   if (max > 0) {
-    const idx = data.indexOf(max);
-    $('peakText').textContent = `Pico às ${idx}h–${idx + 1}h · ${max} venda${max === 1 ? '' : 's'}`;
+    $('peakText').textContent = `Pico às ${peakIdx}h–${peakIdx + 1}h · ${max} venda${max === 1 ? '' : 's'} · ${fmtBRL(rows[peakIdx].revenue)}`;
   } else {
     $('peakText').textContent = 'Sem vendas no período';
   }
