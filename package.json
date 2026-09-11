@@ -1,6 +1,6 @@
 {
   "name": "andromeda",
-  "version": "5.11.0",
+  "version": "5.11.1",
   "description": "Painel de vendas e lucro — tráfego direto",
   "main": "server.js",
   "scripts": {

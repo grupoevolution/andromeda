@@ -282,7 +282,7 @@ document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click'
 
 /* ================= DASHBOARD ================= */
 let chartEv = null, chartHours = null;
-let evDays = 'mes', hDays = 1, showLucro = true;
+let evDays = 'mes', hDays = 1, showLucro = true, showAcum = true;
 
 const tooltipStyle = {
   backgroundColor: '#171429', borderColor: 'rgba(245,183,102,0.4)', borderWidth: 1,
@@ -515,36 +515,49 @@ async function loadHours() {
   grad.addColorStop(0, 'rgba(245,183,102,0.32)');
   grad.addColorStop(1, 'rgba(245,183,102,0)');
   if (chartHours) chartHours.destroy();
+
+  // linha principal: vendas de CADA hora — sobe no pico, despenca na hora fraca
+  const datasets = [{
+    yAxisID: 'y',
+    data: hourly, borderColor: '#F5B766', backgroundColor: grad, fill: true, tension: 0.35,
+    borderWidth: 2.4,
+    pointRadius: hourly.map((_, i) => i === peakIdx ? 5 : 0),
+    pointBackgroundColor: '#FFD9A0', pointBorderColor: '#0B0917', pointBorderWidth: 2,
+    pointHoverRadius: 5, pointHoverBackgroundColor: '#F5B766', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2
+  }];
+  // linha opcional: resultado (R$) crescendo ao longo do dia
+  if (showAcum) datasets.push({
+    yAxisID: 'y2',
+    data: cumRev, borderColor: '#3FCE93', backgroundColor: 'rgba(0,0,0,0)', fill: false, tension: 0.3,
+    borderWidth: 2, borderDash: [5, 4], pointRadius: 0,
+    pointHoverRadius: 4, pointHoverBackgroundColor: '#3FCE93', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2
+  });
+
+  $('hLegend').innerHTML =
+    '<span><span class="dot" style="background:var(--gold)"></span>Vendas por hora</span>' +
+    (showAcum ? '<span><span class="dot" style="background:var(--green)"></span>Acumulado (R$)</span>' : '');
+
   chartHours = new Chart(ctx, {
     type: 'line',
-    data: { labels: hLabels, datasets: [{
-      data: cum, borderColor: '#F5B766', backgroundColor: grad, fill: true, tension: 0.3,
-      // o trecho da hora de pico fica mais grosso e brilhante
-      segment: {
-        borderColor: c => (max > 0 && hourly[c.p1DataIndex] === max) ? '#FFD9A0' : '#F5B766',
-        borderWidth: c => (max > 0 && hourly[c.p1DataIndex] === max) ? 4 : 2.2
-      },
-      borderWidth: 2.2,
-      pointRadius: cum.map((_, i) => i === peakIdx ? 4 : 0),
-      pointBackgroundColor: '#FFD9A0', pointBorderColor: '#0B0917', pointBorderWidth: 1.5,
-      pointHoverRadius: 5, pointHoverBackgroundColor: '#F5B766', pointHoverBorderColor: '#0B0917', pointHoverBorderWidth: 2
-    }]},
+    data: { labels: hLabels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
       animation: { duration: 900, easing: 'easeOutCubic' },
       plugins: { legend: { display: false }, tooltip: { ...tooltipStyle,
         callbacks: {
-          title: items => 'Até ' + items[0].label,
+          title: items => items[0].label,
           label: c => {
+            if (c.datasetIndex === 1) return `acumulado: ${fmtBRL(cumRev[c.dataIndex])} · ${cum[c.dataIndex]} venda${cum[c.dataIndex] === 1 ? '' : 's'}`;
             const i = c.dataIndex;
-            const lines = [`${cum[i]} venda${cum[i] === 1 ? '' : 's'} · ${fmtBRL(cumRev[i])}`];
-            if (hourly[i] > 0) lines.push(`nessa hora: +${hourly[i]} · +${fmtBRL(hourlyRev[i])}`);
-            return lines;
+            return `${hourly[i]} venda${hourly[i] === 1 ? '' : 's'} nessa hora` + (hourlyRev[i] > 0 ? ` · ${fmtBRL(hourlyRev[i])}` : '') + (i === peakIdx ? ' 🔥' : '');
           }
         }
       }},
-      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 9.5, family: 'Inter' }, maxTicksLimit: 12, maxRotation: 0 } },
-                y: { display: false, min: 0, max: Math.max(1, cum[cum.length - 1] || 1) * 1.15 } }
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: '#615C82', font: { size: 9.5, family: 'Inter' }, maxTicksLimit: 12, maxRotation: 0 } },
+        y: { display: false, min: 0, max: Math.max(1, max) * 1.25 },
+        y2: { display: false, min: 0, max: Math.max(1, cumRev[cumRev.length - 1] || 1) * 1.1 }
+      }
     }
   });
   if (max > 0) {
@@ -561,6 +574,12 @@ $('evPeriods').addEventListener('click', e => {
   evDays = e.target.dataset.days === 'mes' ? 'mes' : +e.target.dataset.days;
   loadEvolution();
 });
+$('acumToggle').addEventListener('click', () => {
+  showAcum = !showAcum;
+  $('acumSwitch').classList.toggle('on', showAcum);
+  loadHours();
+});
+
 $('hPeriods').addEventListener('click', e => {
   if (!e.target.dataset.hdays) return;
   [...$('hPeriods').children].forEach(p => p.classList.remove('active'));
