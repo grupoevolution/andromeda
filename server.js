@@ -581,6 +581,37 @@ app.get('/api/compare', auth, (req, res) => {
   res.json({ a: { date: a, ...statsFor(a, a) }, b: { date: b, ...statsFor(b, b) } });
 });
 
+// ---- gasto automático vindo do Argos ----
+// Só mais um jeito do gasto chegar: editar à mão continua igual.
+// POST /api/argos/gasto  · cabeçalho X-Radar-Secret: <ARGOS_SECRET>
+// corpo: { dia: 'AAAA-MM-DD', gasto_total: 2410.22, atualizado_em, fechado }  (gasto SEM imposto)
+// Regra: se o valor do dia foi mudado à mão depois do último envio do Argos, o manual fica.
+// Pra devolver o dia pro automático, apague o valor (deixe 0) e o próximo envio preenche.
+const ARGOS_SECRET = process.env.ARGOS_SECRET || '';
+app.post('/api/argos/gasto', (req, res) => {
+  if (!ARGOS_SECRET) return res.status(503).json({ error: 'ARGOS_SECRET não configurado no Andrômeda' });
+  const got = Buffer.from(String(req.headers['x-radar-secret'] || ''));
+  const want = Buffer.from(ARGOS_SECRET);
+  if (got.length !== want.length || !crypto.timingSafeEqual(got, want)) return res.status(401).json({ error: 'segredo inválido' });
+  const date = String((req.body && req.body.dia) || '');
+  const amount = Number(req.body && req.body.gasto_total);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'dia inválido' });
+  if (!isFinite(amount) || amount < 0) return res.status(400).json({ error: 'gasto_total inválido' });
+  const key = 'argos_gasto_' + date;
+  const last = getSetting(key);
+  const cur = db.prepare('SELECT amount FROM ad_spend WHERE date=?').get(date);
+  if (cur && (last === null || Math.abs(cur.amount - Number(last)) > 0.009)) {
+    return res.json({ ok: true, manual_mantido: true, valor_atual: cur.amount });
+  }
+  const value = +amount.toFixed(2);
+  if (value > 0) {
+    db.prepare(`INSERT INTO ad_spend(date, amount, updated_at) VALUES(?,?,datetime('now'))
+      ON CONFLICT(date) DO UPDATE SET amount=excluded.amount, updated_at=datetime('now')`).run(date, value);
+    setSetting(key, String(value));
+  }
+  res.json({ ok: true, dia: date, gasto: value, fechado: !!(req.body && req.body.fechado) });
+});
+
 app.get('/api/health', (req, res) => res.json({ ok: true, version: VERSION }));
 
 app.use(express.static(path.join(__dirname, 'public')));
