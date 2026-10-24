@@ -548,6 +548,7 @@ app.get('/api/summary', auth, (req, res) => {
     month: { from: monthStart, to: date, ...statsFor(monthStart, date) },
     now: { date: nowDate, ...statsFor(nowDate, nowDate) },
     pix: { generated: pix.total, paid: pix.paid },
+    spendUpdatedAt: (db.prepare('SELECT updated_at FROM ad_spend WHERE date=?').get(date) || {}).updated_at || null,
     taxRate: TAX_RATE
   });
 });

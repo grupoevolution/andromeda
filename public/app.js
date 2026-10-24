@@ -336,7 +336,9 @@ async function loadSummary() {
     rl.dataset.date = t.date;
   } else rl.classList.add('hidden');
 
-  $('spendLabel').textContent = viewing ? 'Gasto em anúncios ' + fmtDate(t.date) : 'Gasto em anúncios hoje';
+  // horário da última atualização do gasto (envio do Argos ou edição à mão), em Brasília
+  const upd = s.spendUpdatedAt ? new Date(s.spendUpdatedAt.replace(' ', 'T') + 'Z').toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : '';
+  $('spendLabel').textContent = (viewing ? 'Gasto em anúncios ' + fmtDate(t.date) : 'Gasto em anúncios hoje') + (upd ? ' · ' + upd : '');
   $('spendToday').textContent = fmtBRL(t.spend);
   $('spendTaxToday').textContent = '+ ' + fmtBRL(t.tax) + ' de imposto';
 
